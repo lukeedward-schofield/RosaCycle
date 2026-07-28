@@ -28,6 +28,15 @@ def create_app(config_object=Config):
 
     os.makedirs(app.config["UPLOAD_ROOT"], exist_ok=True)
 
+    @app.get("/")
+    def index():
+        return {
+            "service": "RosaCycle API",
+            "status": "ok",
+            "docs": "backend/docs/API.md",
+            "health": "/health",
+        }
+
     @app.get("/health")
     def health():
         return {"status": "ok"}
