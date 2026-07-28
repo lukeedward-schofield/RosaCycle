@@ -104,7 +104,7 @@ def upgrade():
     )
     with op.batch_alter_table('offers', schema=None) as batch_op:
         batch_op.create_index(batch_op.f('ix_offers_offerer_id'), ['offerer_id'], unique=False)
-        batch_op.create_index('ix_offers_one_pending_per_trade', ['trade_id'], unique=True, postgresql_where=sa.text("status = 'pending'"), sqlite_where=sa.text("status = 'pending'"))
+        batch_op.create_index('ix_offers_one_pending_per_trade', ['trade_id'], unique=True, postgresql_where=sa.text("status = 'PENDING'"), sqlite_where=sa.text("status = 'PENDING'"))
         batch_op.create_index(batch_op.f('ix_offers_status'), ['status'], unique=False)
         batch_op.create_index(batch_op.f('ix_offers_trade_id'), ['trade_id'], unique=False)
 
@@ -166,7 +166,7 @@ def downgrade():
     with op.batch_alter_table('offers', schema=None) as batch_op:
         batch_op.drop_index(batch_op.f('ix_offers_trade_id'))
         batch_op.drop_index(batch_op.f('ix_offers_status'))
-        batch_op.drop_index('ix_offers_one_pending_per_trade', postgresql_where=sa.text("status = 'pending'"), sqlite_where=sa.text("status = 'pending'"))
+        batch_op.drop_index('ix_offers_one_pending_per_trade', postgresql_where=sa.text("status = 'PENDING'"), sqlite_where=sa.text("status = 'PENDING'"))
         batch_op.drop_index(batch_op.f('ix_offers_offerer_id'))
 
     op.drop_table('offers')
