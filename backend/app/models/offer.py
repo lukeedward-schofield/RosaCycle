@@ -10,8 +10,8 @@ class Offer(db.Model):
             "ix_offers_one_pending_per_trade",
             "trade_id",
             unique=True,
-            postgresql_where=db.text("status = 'pending'"),
-            sqlite_where=db.text("status = 'pending'"),
+            postgresql_where=db.text("status = 'PENDING'"),
+            sqlite_where=db.text("status = 'PENDING'"),
         ),
     )
 
