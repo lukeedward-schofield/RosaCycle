@@ -1,284 +1,31 @@
-# RosaCycle Development Log
+# Development Progress
 
-This document records the evolution of RosaCycle from concept to implementation. Every major architectural and product decision is documented so that future contributors understand **why** decisions were made, not just **what** was implemented.
+## Phase 1 – System Planning & Architecture
 
----
+**Status:** Completed
 
-# Development Phase 1 - Product Planning & System Design
+During the initial phase of development, the project focused on establishing RosaCycle's overall vision, system architecture, and business requirements before any implementation began. The team defined the application's primary objective of promoting a circular economy through community-based trading and resource recovery while aligning the platform with Sustainable Development Goal 12 (Responsible Consumption and Production).
 
-Status: In Progress
-
-## Objective
-
-Before writing code, the team agreed to fully define the product, its architecture, and its business rules. The goal is to minimize redesign during development by understanding the product first and treating code as the implementation of an already well-defined system.
+Major discussions during this phase centered on refining the trading workflow, defining the business rules for offers and trades, designing the Resource Spot reporting system, planning the user entity, and determining the overall backend architecture. The repository was also structured into separate frontend and backend applications within a single monorepo to simplify collaboration while maintaining clear separation of concerns. The guiding principle throughout this phase was to fully understand the business problem before writing code, ensuring that implementation decisions were driven by well-defined requirements rather than assumptions.
 
 ---
 
-# Product Philosophy
+## Phase 2 – Deployment & Infrastructure
 
-RosaCycle is designed around the principles of the circular economy.
+**Status:** Completed
 
-Instead of focusing on buying and selling recyclable materials, RosaCycle encourages communities to keep reusable materials circulating through trading, discovery, and recovery.
+The third phase established the project's cloud infrastructure and deployment pipeline using Railway. Independent services were configured for the frontend application, backend API, and managed PostgreSQL database, allowing each component to be deployed and maintained separately.
 
-The project primarily supports **Sustainable Development Goal 12 – Responsible Consumption and Production** by extending the lifecycle of reusable materials before they reach landfills.
-
-Core principles established during planning:
-
-- Materials should continue circulating instead of becoming landfill waste.
-- Money is intentionally removed from the exchange process.
-- The platform targets environmentally conscious users and local communities.
-- AI should reduce friction rather than replace user decision-making.
-- Every feature should reinforce the circular flow of materials.
+The backend was successfully connected to the Railway PostgreSQL service using environment variables, and production database migrations were executed to generate the application's database schema. The React frontend, built with Vite, was deployed as a separate Railway service and verified to be publicly accessible. By the end of this phase, both the frontend and backend were successfully deployed in the cloud, providing a stable staging environment for future frontend-backend integration, feature development, and collaborative testing.
 
 ---
 
-# Development Methodology
+## Phase 3 – Frontend–Backend Integration
 
-The team agreed that every feature will be designed using the following process:
+**Status:** In Progress
 
-```
-Problem Definition
-        ↓
-Product Discussion
-        ↓
-Business Rules
-        ↓
-Edge Cases
-        ↓
-Architecture
-        ↓
-Database Design
-        ↓
-API Design
-        ↓
-UI / UX
-        ↓
-Implementation
-```
+The current phase focuses on integrating the React frontend with the Flask REST API while ensuring both applications communicate reliably in both local and cloud environments. Prior to feature integration, the deployment infrastructure was established by deploying the frontend, backend, and PostgreSQL database as separate Railway services. Environment variables, database connectivity, and production migrations were configured and verified to provide a stable development and testing environment.
 
-The objective is to understand the business before writing code.
+With the infrastructure in place, development has shifted toward replacing frontend mock data with live API endpoints. Integration will be performed incrementally, beginning with the trading module, which serves as the application's core functionality. Each frontend feature will be connected to its corresponding backend endpoint, tested independently, and validated before proceeding to the next component. This phased approach minimizes integration issues while ensuring that both the client and server remain synchronized throughout development.
 
----
-
-# Documentation Structure
-
-The following project documentation was established before implementation:
-
-- Product Definition
-- Product Requirements
-- System Architecture
-- Database Design
-- API Documentation
-- UI / UX Documentation
-- Project Management
-
-This documentation serves as the project's single source of truth throughout development.
-
----
-
-# Repository Structure
-
-The project will use a monorepo architecture.
-
-```
-RosaCycle/
-
-frontend/
-
-backend/
-
-docs/
-
-
-```
-
-The frontend and backend are developed independently while sharing the same repository and documentation.
-
----
-
-# Backend Architecture Decision
-
-Instead of organizing the backend by technical layers (controllers, services, repositories), the project will adopt a **feature-based architecture**.
-
-Example:
-
-```
-backend/
-
-auth/
-
-user/
-
-trade/
-
-offer/
-
-chat/
-
-resource_spot/
-
-shared/
-```
-
-Each feature contains its own models, controllers, services, repositories, and schemas to improve maintainability and reduce context switching for new developers.
-
----
-
-# Trading System Design
-
-The trading system was intentionally simplified to fit the hackathon timeline.
-
-Business rules established:
-
-- A trade represents one listing created by a user.
-- A trade can only have one active offer at a time.
-- The first successful offer reserves the trade.
-- While reserved, no other users may submit offers.
-- The trade owner may accept or decline the offer.
-- Declining the offer makes the trade available again.
-- Each offer belongs exclusively to one trade.
-- Offer data is local to the trade and is not reused across different trades.
-
-The possibility of allowing multiple concurrent offers was discussed but intentionally postponed due to development constraints.
-
----
-
-# User Entity Design
-
-The User entity is responsible only for identity and authentication.
-
-Relationships such as trades, offers, and messages are handled separately.
-
-Initial fields discussed include:
-
-- User ID
-- Username
-- First Name
-- Last Name
-- Email
-- Password Hash
-- Profile Image
-- Created Date
-- User Role
-
-Additional profile information such as addresses, biographies, and phone numbers were intentionally excluded from the MVP.
-
----
-
-# Resource Discovery System
-
-One of RosaCycle's defining features is the Resource Discovery system.
-
-During planning, the feature evolved from the idea of reporting garbage dumps into reporting reusable community resources.
-
-Terminology decision:
-
-- ❌ Garbage Report
-- ✅ Resource Spot
-
-A Resource Spot represents a location containing reusable materials that community members may recover before they become landfill waste.
-
-Current business rules:
-
-- Users may report reusable resource locations.
-- AI performs an initial material assessment.
-- Users may edit AI-generated information before submission.
-- Each report appears as a pin on the community map.
-- Resource Spots may include permission information supplied by the reporter.
-- Reports expire automatically after a configurable number of days.
-- Community members may update the location by submitting a new photo after collecting materials.
-- Once the location is completely depleted, users may mark the Resource Spot as collected, removing it from the map.
-
-The team intentionally decided not to treat Resource Spots as marketplace listings.
-
-Instead, they function as community-discovered opportunities for material recovery.
-
----
-
-# AI Philosophy
-
-Throughout planning, AI was positioned as an assistant rather than an authority.
-
-The agreed principles are:
-
-- AI reduces manual data entry.
-- AI suggestions are editable by users.
-- AI estimates should never be treated as absolute truth.
-- User verification always overrides AI predictions.
-
----
-
-# Infrastructure Decisions
-
-The project will use:
-
-Frontend
-
-- React
-- Vite
-
-Backend
-
-- Flask
-- SQLAlchemy
-
-Database
-
-- PostgreSQL
-
-Hosting
-
-- Railway
-
-The database schema will be managed entirely through SQLAlchemy models and migrations rather than manual modifications within the hosting platform.
-
----
-
-# Planning Philosophy
-
-A recurring design principle established throughout planning:
-
-> "Design the business first. Code is only the implementation."
-
-Every major feature is challenged through discussion before implementation begins.
-
-Questions considered include:
-
-- Does the feature solve a real problem?
-- Is it technically feasible within the hackathon timeline?
-- Does it support RosaCycle's mission?
-- What are its edge cases?
-- Can the architecture scale without unnecessary complexity?
-
----
-
-# Current Progress
-
-Completed
-
-- Product Definition
-- Product Requirements
-- Documentation Structure
-- Repository Structure
-- Backend Architecture
-- Initial Trading Design
-- Initial User Entity Design
-- Initial Resource Spot Design
-- Infrastructure Decisions
-
-Currently Working On
-
-- Database Design
-
-Upcoming
-
-- Entity Relationships
-- API Specification
-- Frontend Architecture
-- UI Components
-- Implementation
-- Testing
-
-
-
-# Development Phase 2 - Development
+The immediate objectives of this phase include integrating trade browsing, trade details, trade creation, offer management, user authentication, and other supporting services, ultimately transitioning the application from isolated frontend and backend implementations into a fully connected system.
