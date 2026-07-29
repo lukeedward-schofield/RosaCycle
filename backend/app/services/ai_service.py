@@ -38,7 +38,7 @@ def _call_gemini(image_file, prompt):
         raise RuntimeError("GEMINI_API_KEY is not configured.")
 
     genai.configure(api_key=api_key)
-    model = genai.GenerativeModel("gemini-1.5-flash")
+    model = genai.GenerativeModel("models/gemini-flash-latest")
 
     image_bytes = image_file.read()
     mime_type = image_file.mimetype or "image/jpeg"
