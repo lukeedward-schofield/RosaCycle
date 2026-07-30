@@ -41,7 +41,7 @@ export default function TradeDetailScreen() {
 
   const itemInfo = (
     <>
-      <div className="aspect-[4/3] bg-gray-100 border-b border-gray-200">
+      <div className="h-44 bg-gray-100 border-b border-gray-200">
         {trade.image && <img src={trade.image} alt={trade.name} className="w-full h-full object-cover" />}
         <div className="absolute top-3 right-3">
           <MaterialTag material={trade.material} />
