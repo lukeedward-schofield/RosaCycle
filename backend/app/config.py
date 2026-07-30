@@ -1,5 +1,7 @@
 import os
 
+_BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))  # backend/
+
 
 class Config:
     SECRET_KEY = os.environ.get("SECRET_KEY", "dev")
@@ -10,7 +12,11 @@ class Config:
     )
     SQLALCHEMY_TRACK_MODIFICATIONS = False
 
-    UPLOAD_ROOT = os.environ.get("UPLOAD_ROOT", os.path.join("instance", "uploads"))
+    # Resolved to an absolute path so file-save and file-serve agree regardless
+    # of the process's working directory at launch (relative paths otherwise
+    # resolve against cwd, which differs across terminals/IDE run configs).
+    _upload_root = os.environ.get("UPLOAD_ROOT", os.path.join("instance", "uploads"))
+    UPLOAD_ROOT = _upload_root if os.path.isabs(_upload_root) else os.path.join(_BASE_DIR, _upload_root)
     PUBLIC_BASE_URL = os.environ.get("PUBLIC_BASE_URL", "http://localhost:5000")
     MAX_CONTENT_LENGTH = int(os.environ.get("MAX_CONTENT_LENGTH_MB", "10")) * 1024 * 1024
 
