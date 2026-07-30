@@ -5,12 +5,10 @@ import Header from '../components/layout/Header';
 import PrimaryButton from '../components/common/PrimaryButton';
 import PasswordInput from '../components/common/PasswordInput';
 import { useAuth } from '../context/AuthContext';
-import { PROFILE_EDIT_COOLDOWN_DAYS } from '../services/api';
 
 const inputClass =
   'w-full px-4 py-3.5 rounded-xl border border-gray-200 focus:border-brand-500 focus:outline-none';
 const labelClass = 'text-sm font-medium text-gray-700 mb-1 block';
-const COOLDOWN_MS = PROFILE_EDIT_COOLDOWN_DAYS * 24 * 60 * 60 * 1000;
 
 export default function EditProfileScreen() {
   const navigate = useNavigate();
@@ -25,14 +23,6 @@ export default function EditProfileScreen() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
 
-  const nextAllowedAt = user?.profileUpdatedAt
-    ? new Date(user.profileUpdatedAt).getTime() + COOLDOWN_MS
-    : 0;
-  const onCooldown = Date.now() < nextAllowedAt;
-  const nextAllowedLabel = onCooldown
-    ? new Date(nextAllowedAt).toLocaleDateString(undefined, { month: 'long', day: 'numeric', year: 'numeric' })
-    : '';
-
   const changingPassword = currentPassword.length > 0 || password.length > 0 || confirmPassword.length > 0;
 
   const hasChanges =
@@ -43,7 +33,6 @@ export default function EditProfileScreen() {
     changingPassword;
 
   const canSave =
-    !onCooldown &&
     hasChanges &&
     firstName.trim().length > 0 &&
     lastName.trim().length > 0 &&
@@ -83,15 +72,7 @@ export default function EditProfileScreen() {
       <Header onBack={() => navigate(-1)} title="Edit Profile" />
 
       <div className="p-5 space-y-4">
-        {onCooldown && (
-          <p className="text-sm text-amber-700 bg-amber-50 rounded-xl px-4 py-3">
-            To keep accounts secure, profile changes are limited to once every{' '}
-            {PROFILE_EDIT_COOLDOWN_DAYS} days. You can update your profile again on{' '}
-            <span className="font-semibold">{nextAllowedLabel}</span>.
-          </p>
-        )}
-
-        <fieldset disabled={onCooldown} className="space-y-4 disabled:opacity-50">
+        <fieldset className="space-y-4">
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className={labelClass}>First name</label>
@@ -155,11 +136,9 @@ export default function EditProfileScreen() {
 
         {error && <p className="text-sm text-red-500">{error}</p>}
 
-        {!onCooldown && (
-          <PrimaryButton onClick={handleSave} disabled={!canSave || saving}>
-            {saving ? 'Saving...' : 'Save Changes'}
-          </PrimaryButton>
-        )}
+        <PrimaryButton onClick={handleSave} disabled={!canSave || saving}>
+          {saving ? 'Saving...' : 'Save Changes'}
+        </PrimaryButton>
 
         <button
           onClick={handleLogout}

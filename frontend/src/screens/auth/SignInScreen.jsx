@@ -22,8 +22,8 @@ export default function SignInScreen() {
     setLoading(true);
     setError('');
     try {
-      const user = await loginUser({ email: email.trim(), password });
-      login(user);
+      const { user, token } = await loginUser({ email: email.trim(), password });
+      login(user, token);
       navigate('/trades', { replace: true });
     } catch (err) {
       setError(err.message || 'Something went wrong. Please try again.');

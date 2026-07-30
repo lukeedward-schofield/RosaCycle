@@ -1,19 +1,36 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import Header from '../components/layout/Header';
 import PrimaryButton from '../components/common/PrimaryButton';
 import StarRating from '../components/common/StarRating';
-import { mockTrades } from '../data/mockTrades';
+import { fetchTradeById, submitRating } from '../services/api';
 
-// NOTE: no detailed flow was given for this screen in the docs — structure here
-// is a proposed default (see PLAN.md section 7, open question #4). Confirm with
-// team before treating this as final.
 export default function RateTraderScreen() {
   const navigate = useNavigate();
   const { tradeId } = useParams();
-  const trade = mockTrades.find((t) => t.id === tradeId);
+  const [trade, setTrade] = useState(null);
   const [rating, setRating] = useState(0);
   const [comment, setComment] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    fetchTradeById(tradeId).then(setTrade).catch(() => setTrade(null));
+  }, [tradeId]);
+
+  const handleSubmit = async () => {
+    if (rating === 0 || submitting) return;
+    setSubmitting(true);
+    setError('');
+    try {
+      await submitRating(tradeId, rating, comment.trim() || undefined);
+      navigate('/trades');
+    } catch (err) {
+      setError(err.message || 'Could not submit rating.');
+    } finally {
+      setSubmitting(false);
+    }
+  };
 
   return (
     <div className="pb-10">
@@ -41,9 +58,11 @@ export default function RateTraderScreen() {
           className="w-full bg-gray-100 rounded-xl px-4 py-3 text-sm outline-none min-h-[90px] resize-none text-left"
         />
 
+        {error && <p className="text-sm text-red-500 text-left">{error}</p>}
+
         <div className="space-y-3 pt-2">
-          <PrimaryButton disabled={rating === 0} onClick={() => navigate('/trades')}>
-            Submit Rating
+          <PrimaryButton disabled={rating === 0 || submitting} onClick={handleSubmit}>
+            {submitting ? 'Submitting...' : 'Submit Rating'}
           </PrimaryButton>
           <button onClick={() => navigate('/trades')} className="text-sm text-gray-500 font-medium">
             Skip for now

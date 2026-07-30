@@ -3,7 +3,7 @@ import ConfirmationScreen from '../components/common/ConfirmationScreen';
 import EcoImpactBox from '../components/trade/EcoImpactBox';
 
 const TRADING_FOR_LABELS = {
-  specific: (v) => v.tradingForValue || 'a specific item',
+  specific: (tf) => tf.value || 'a specific item',
   nothing: () => 'Nothing (free item)',
   negotiating: () => 'Open for negotiating',
 };
@@ -20,10 +20,11 @@ export default function TradeCreatedScreen() {
       summaryCard={
         trade && (
           <div>
-            <p className="font-bold text-gray-900">{trade.itemName || trade.material}</p>
+            <p className="font-bold text-gray-900">{trade.name || trade.material}</p>
             <p className="text-sm text-gray-500 mt-1">{trade.weightKg}kg • {trade.category}</p>
             <p className="text-sm text-gray-500 mt-1">
-              Trade for: {(TRADING_FOR_LABELS[trade.tradingForType] || TRADING_FOR_LABELS.negotiating)(trade)}
+              Trade for:{' '}
+              {(TRADING_FOR_LABELS[trade.tradingFor?.type] || TRADING_FOR_LABELS.negotiating)(trade.tradingFor || {})}
             </p>
             {trade.description && (
               <p className="text-sm text-gray-500 italic mt-2">&ldquo;{trade.description}&rdquo;</p>

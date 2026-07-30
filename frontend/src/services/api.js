@@ -1,165 +1,202 @@
 /**
- * API abstraction layer.
- *
- * IMPORTANT for team integration: screens should import data functions from
- * HERE, not directly from `data/mockTrades.js`. Right now these functions
- * just return mock data, but once Backend Lead's API is live, only THIS file
- * needs to change (swap the mock return for a real `fetch()` call) — no
- * screen code should need to be touched.
- *
- * Expected JSON shape (to align with Backend Lead's endpoints):
- *
- * Trade {
- *   id: string
- *   name: string
- *   material: string
- *   image: string | null
- *   distanceKm: number
- *   location: string
- *   posterName: string
- *   weightKg: number
- *   quantity: number
- *   tradingFor: { type: 'specific' | 'nothing' | 'negotiating', value?: string }
- *   description: string
- *   hasOffers: boolean
- *   offerAccepted: boolean
- * }
+ * API layer — talks to the real RosaCycle backend (see backend/docs/API.md
+ * for the full reference). Screens should only import from here, never call
+ * fetch() directly and never import from data/mock*.js.
  */
-import { mockTrades, mockTrackTrades, mockOfferHistory } from '../data/mockTrades';
-import { SEED_USERS } from '../data/mockUsers';
+import { TOKEN_STORAGE_KEY } from '../lib/storageKeys';
 
-// Simulates network latency so loading states can be tested during frontend dev.
-const delay = (ms = 300) => new Promise((res) => setTimeout(res, ms));
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000';
 
-export async function fetchBrowseTrades() {
-  await delay();
-  return mockTrades;
+function getToken() {
+  return localStorage.getItem(TOKEN_STORAGE_KEY);
 }
 
-export async function fetchTradeById(id) {
-  await delay();
-  return mockTrades.find((t) => t.id === id) || mockTrackTrades.find((t) => t.id === id) || null;
+function buildFormData(fields = {}, imageFile) {
+  const form = new FormData();
+  Object.entries(fields).forEach(([key, value]) => {
+    if (value === undefined || value === null || value === '') return;
+    form.append(key, value);
+  });
+  if (imageFile) form.append('image', imageFile);
+  return form;
 }
 
-export async function fetchMyTrades() {
-  await delay();
-  return mockTrackTrades;
-}
-
-export async function fetchOfferHistory() {
-  await delay();
-  return mockOfferHistory;
-}
-
-export async function createTrade(payload) {
-  await delay();
-  // Real version: POST to backend, return created trade with server-assigned id.
-  return { id: `trade-${Date.now()}`, ...payload };
-}
-
-export async function sendOffer(tradeId, payload) {
-  await delay();
-  // Real version: POST offer to backend.
-  return { tradeId, ...payload, status: 'Pending' };
-}
-
-/**
- * Auth (mock, email + password) — matches the User entity in docs/:
- * Username, First Name, Last Name, Email, Password Hash, Profile Image,
- * Created Date, User Role. No backend yet, so accounts are persisted to
- * localStorage (not just kept in memory) so a page reload during dev doesn't
- * wipe out accounts you just signed up with. "Password hashing" is skipped
- * entirely — real version: these become real POSTs to Flask, password hashed
- * server-side, and the password field is never sent back in the response.
- */
-const USERS_STORAGE_KEY = 'rosacycle_mock_users';
-
-function loadMockUsers() {
-  try {
-    const raw = localStorage.getItem(USERS_STORAGE_KEY);
-    if (raw) return JSON.parse(raw);
-  } catch {
-    // corrupted storage — fall through to reseed
+async function apiFetch(path, { method = 'GET', json, form, query } = {}) {
+  let url = `${API_BASE_URL}${path}`;
+  if (query) {
+    const qs = new URLSearchParams(
+      Object.entries(query).filter(([, v]) => v !== undefined && v !== null && v !== '')
+    ).toString();
+    if (qs) url += `?${qs}`;
   }
-  return SEED_USERS;
+
+  const headers = {};
+  const token = getToken();
+  if (token) headers['Authorization'] = `Bearer ${token}`;
+
+  const init = { method, headers };
+  if (form) {
+    init.body = form; // browser sets multipart Content-Type + boundary itself
+  } else if (json !== undefined) {
+    headers['Content-Type'] = 'application/json';
+    init.body = JSON.stringify(json);
+  }
+
+  const res = await fetch(url, init);
+
+  if (res.status === 401) {
+    window.dispatchEvent(new CustomEvent('rosacycle:unauthorized'));
+  }
+
+  if (!res.ok) {
+    let message = `Request failed (${res.status}).`;
+    try {
+      const body = await res.json();
+      if (body?.error) message = body.error;
+    } catch {
+      // non-JSON error body — fall back to the generic message
+    }
+    throw new Error(message);
+  }
+
+  if (res.status === 204) return null;
+  return res.json();
 }
 
-const _mockUsers = loadMockUsers();
-
-function persistMockUsers() {
-  localStorage.setItem(USERS_STORAGE_KEY, JSON.stringify(_mockUsers));
-}
-
-function sanitizeUser(user) {
-  const { password, ...rest } = user;
-  return rest;
-}
+// --- Auth ---------------------------------------------------------------
 
 export async function registerUser({ firstName, lastName, username, email, password }) {
-  await delay();
-  if (_mockUsers.some((u) => u.email.toLowerCase() === email.toLowerCase())) {
-    throw new Error('An account with this email already exists.');
-  }
-  const user = {
-    id: `user-${Date.now()}`,
-    username,
-    firstName,
-    lastName,
-    email,
-    password,
-    profileImage: null,
-    role: 'user',
-    createdAt: new Date().toISOString(),
-  };
-  _mockUsers.push(user);
-  persistMockUsers();
-  return sanitizeUser(user);
+  return apiFetch('/auth/register', {
+    method: 'POST',
+    json: { firstName, lastName, username, email, password },
+  });
 }
 
 export async function loginUser({ email, password }) {
-  await delay();
-  const user = _mockUsers.find((u) => u.email.toLowerCase() === email.toLowerCase());
-  if (!user || user.password !== password) {
-    throw new Error('Invalid email or password.');
-  }
-  return sanitizeUser(user);
+  return apiFetch('/auth/login', { method: 'POST', json: { email, password } });
 }
 
 export async function logoutUser() {
-  await delay(150);
+  try {
+    await apiFetch('/auth/logout', { method: 'POST' });
+  } catch {
+    // logout is a stateless no-op server-side — never block local sign-out on it
+  }
   return true;
 }
 
-// Anti-abuse cooldown: profile edits (name, username, email, password) are
-// throttled so an account can't be repeatedly changed back-to-back.
-export const PROFILE_EDIT_COOLDOWN_DAYS = 7;
-const PROFILE_EDIT_COOLDOWN_MS = PROFILE_EDIT_COOLDOWN_DAYS * 24 * 60 * 60 * 1000;
-
-export async function updateUserProfile(userId, updates, currentPassword) {
-  await delay();
-  const user = _mockUsers.find((u) => u.id === userId);
-  if (!user) throw new Error('User not found.');
-  if (updates.password && currentPassword !== user.password) {
-    throw new Error('Current password is incorrect.');
-  }
-  if (user.profileUpdatedAt) {
-    const nextAllowedAt = new Date(user.profileUpdatedAt).getTime() + PROFILE_EDIT_COOLDOWN_MS;
-    if (Date.now() < nextAllowedAt) {
-      const daysLeft = Math.ceil((nextAllowedAt - Date.now()) / (24 * 60 * 60 * 1000));
-      throw new Error(`You can update your profile again in ${daysLeft} day${daysLeft === 1 ? '' : 's'}.`);
-    }
-  }
-  Object.assign(user, updates, { profileUpdatedAt: new Date().toISOString() });
-  persistMockUsers();
-  return sanitizeUser(user);
+export async function fetchCurrentUser() {
+  return apiFetch('/users/me');
 }
 
-/**
- * Resource Spot reporting (mock). Distinct from Trades — reporting a spot
- * pins a location on the Map, it never creates a Trade.
- */
-export async function reportResourceSpot(payload) {
-  await delay();
-  // Real version: POST to backend, return created spot with server-assigned id.
-  return { id: `site-${Date.now()}`, distanceKm: 0, ...payload };
+export async function updateUserProfile(updates, currentPassword) {
+  const form = buildFormData({
+    firstName: updates.firstName,
+    lastName: updates.lastName,
+    username: updates.username,
+    email: updates.email,
+    password: updates.password,
+    currentPassword,
+  });
+  if (updates.imageFile) form.set('image', updates.imageFile);
+  return apiFetch('/users/me', { method: 'PATCH', form });
+}
+
+// --- Trades ---------------------------------------------------------------
+
+export async function fetchBrowseTrades({ category, location } = {}) {
+  return apiFetch('/trades', { query: { category, location } });
+}
+
+export async function fetchMyTrades() {
+  return apiFetch('/trades/mine');
+}
+
+export async function fetchTradeById(id) {
+  return apiFetch(`/trades/${id}`);
+}
+
+export async function createTrade(fields, imageFile) {
+  const form = buildFormData(fields, imageFile);
+  return apiFetch('/trades', { method: 'POST', form });
+}
+
+export async function updateTrade(id, fields, imageFile) {
+  const form = buildFormData(fields, imageFile);
+  return apiFetch(`/trades/${id}`, { method: 'PATCH', form });
+}
+
+// --- Offers ---------------------------------------------------------------
+
+export async function sendOffer(tradeId, fields, imageFile) {
+  const form = buildFormData(fields, imageFile);
+  return apiFetch(`/trades/${tradeId}/offers`, { method: 'POST', form });
+}
+
+export async function fetchOffersForTrade(tradeId) {
+  return apiFetch(`/trades/${tradeId}/offers`);
+}
+
+export async function acceptOffer(offerId) {
+  return apiFetch(`/offers/${offerId}/accept`, { method: 'POST' });
+}
+
+export async function declineOffer(offerId) {
+  return apiFetch(`/offers/${offerId}/decline`, { method: 'POST' });
+}
+
+export async function fetchMyOffers() {
+  return apiFetch('/offers/mine');
+}
+
+export async function fetchReceivedOffers() {
+  return apiFetch('/offers/received');
+}
+
+// --- Resource Spots ---------------------------------------------------------------
+
+export async function fetchResourceSpots() {
+  return apiFetch('/resource-spots');
+}
+
+export async function fetchResourceSpotById(id) {
+  return apiFetch(`/resource-spots/${id}`);
+}
+
+export async function reportResourceSpot(fields, imageFile) {
+  const form = buildFormData(fields, imageFile);
+  return apiFetch('/resource-spots', { method: 'POST', form });
+}
+
+export async function addResourceSpotPhoto(id, imageFile) {
+  const form = buildFormData({}, imageFile);
+  return apiFetch(`/resource-spots/${id}/photos`, { method: 'POST', form });
+}
+
+export async function markResourceSpotCollected(id) {
+  return apiFetch(`/resource-spots/${id}/collected`, { method: 'POST' });
+}
+
+// --- Notifications ---------------------------------------------------------------
+
+export async function fetchNotifications() {
+  return apiFetch('/notifications');
+}
+
+export async function fetchUnreadNotificationCount() {
+  return apiFetch('/notifications/unread-count');
+}
+
+export async function markNotificationRead(id) {
+  return apiFetch(`/notifications/${id}/read`, { method: 'PATCH' });
+}
+
+// --- Ratings ---------------------------------------------------------------
+
+export async function submitRating(tradeId, score, comment) {
+  return apiFetch(`/trades/${tradeId}/ratings`, { method: 'POST', json: { score, comment } });
+}
+
+export async function fetchUserRatings(userId) {
+  return apiFetch(`/users/${userId}/ratings`);
 }

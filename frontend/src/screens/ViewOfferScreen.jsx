@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { MessageCircle } from 'lucide-react';
 import Header from '../components/layout/Header';
@@ -5,7 +6,7 @@ import MaterialTag from '../components/common/MaterialTag';
 import StatusPill from '../components/common/StatusPill';
 import PrimaryButton from '../components/common/PrimaryButton';
 import EcoImpactBox from '../components/trade/EcoImpactBox';
-import { mockTrades, mockOfferHistory } from '../data/mockTrades';
+import { fetchTradeById, fetchMyOffers } from '../services/api';
 
 /**
  * Read-only record of an offer you already sent — reached from Offer History.
@@ -15,8 +16,27 @@ import { mockTrades, mockOfferHistory } from '../data/mockTrades';
 export default function ViewOfferScreen() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const trade = mockTrades.find((t) => t.id === id);
-  const offer = mockOfferHistory.find((o) => o.tradeId === id);
+  const [trade, setTrade] = useState(null);
+  const [offer, setOffer] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    Promise.all([fetchTradeById(id).catch(() => null), fetchMyOffers()])
+      .then(([tradeData, offers]) => {
+        setTrade(tradeData);
+        setOffer(offers.find((o) => o.tradeId === id) || null);
+      })
+      .finally(() => setLoading(false));
+  }, [id]);
+
+  if (loading) {
+    return (
+      <div className="pb-10">
+        <Header onBack={() => navigate(-1)} title="Your Offer" />
+        <p className="text-center text-sm text-gray-400 py-16">Loading...</p>
+      </div>
+    );
+  }
 
   if (!offer) {
     return (
@@ -27,7 +47,7 @@ export default function ViewOfferScreen() {
     );
   }
 
-  const accepted = offer.status === 'Accepted';
+  const accepted = offer.status === 'accepted';
 
   return (
     <div className="pb-10">
