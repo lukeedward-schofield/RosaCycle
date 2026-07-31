@@ -61,6 +61,17 @@ export default function AIDetectedForm({ context = 'posting', values, onChange }
       {context === 'posting' && (
         <div className="border-t border-gray-100 pt-5 space-y-3">
           <div>
+            <label className={labelClass}>Quantity</label>
+            <input
+              type="number"
+              min="1"
+              className={inputClass}
+              value={values.quantity || ''}
+              onChange={set('quantity')}
+              placeholder="e.g. 1"
+            />
+          </div>
+          <div>
             <label className={labelClass}>Caption</label>
             <textarea
               className={`${inputClass} min-h-[80px] resize-none`}

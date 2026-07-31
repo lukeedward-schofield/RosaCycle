@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { MessageCircle, MoreVertical } from 'lucide-react';
 import Header from '../components/layout/Header';
@@ -6,7 +6,8 @@ import MaterialTag from '../components/common/MaterialTag';
 import StatusPill from '../components/common/StatusPill';
 import PrimaryButton from '../components/common/PrimaryButton';
 import EcoImpactBox from '../components/trade/EcoImpactBox';
-import { mockTrades, mockTrackTrades, mockReceivedOffers, formatTradingFor, getTradeStatus } from '../data/mockTrades';
+import { formatTradingFor, getTradeStatus } from '../utils/tradeFormat';
+import { fetchTradeById, fetchOffersForTrade, acceptOffer, declineOffer } from '../services/api';
 
 export default function TradeDetailScreen() {
   const { id } = useParams();
@@ -15,29 +16,70 @@ export default function TradeDetailScreen() {
   // TradesScreen links to My Trades items with ?owner=1 — derive isOwner from
   // that instead of a prop, since no route ever actually passed one in.
   const isOwner = searchParams.get('owner') === '1';
-  // Own posts (from My Trades) live in mockTrackTrades, not mockTrades — check
-  // both so "View Details" always shows what was actually posted, not a fallback.
-  const trade =
-    mockTrades.find((t) => t.id === id) ||
-    mockTrackTrades.find((t) => t.id === id) ||
-    mockTrades[0];
 
-  // Received offers now live on this same page (no separate screen) —
-  // accept/decline mutates the trade object in place, same pattern as
-  // EditListingScreen, so status/chat access update immediately here too.
-  const [offers, setOffers] = useState(mockReceivedOffers[trade.id] || []);
+  const [trade, setTrade] = useState(null);
+  const [offers, setOffers] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [notFound, setNotFound] = useState(false);
+  const [error, setError] = useState('');
+  const [decidingOfferId, setDecidingOfferId] = useState(null);
 
-  const decide = (offerId, status) => {
-    setOffers((prev) => {
-      const updated = prev.map((o) => (o.id === offerId ? { ...o, status } : o));
-      if (status === 'Accepted') {
-        trade.offerAccepted = true;
-      } else if (status === 'Declined' && !updated.some((o) => o.status === 'Pending')) {
-        trade.hasOffers = false;
-      }
-      return updated;
-    });
+  const loadTrade = () => {
+    setLoading(true);
+    setNotFound(false);
+    setError('');
+    const requests = [fetchTradeById(id)];
+    if (isOwner) requests.push(fetchOffersForTrade(id));
+
+    Promise.all(requests)
+      .then(([tradeData, offersData]) => {
+        setTrade(tradeData);
+        if (isOwner) setOffers(offersData || []);
+      })
+      .catch((err) => {
+        if (err.message?.toLowerCase().includes('not found')) setNotFound(true);
+        else setError(err.message || 'Could not load this trade.');
+      })
+      .finally(() => setLoading(false));
   };
+
+  useEffect(() => {
+    loadTrade();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [id, isOwner]);
+
+  const decide = async (offerId, action) => {
+    if (decidingOfferId) return;
+    setDecidingOfferId(offerId);
+    setError('');
+    try {
+      if (action === 'accept') await acceptOffer(offerId);
+      else await declineOffer(offerId);
+      loadTrade();
+    } catch (err) {
+      setError(err.message || 'Could not update this offer.');
+    } finally {
+      setDecidingOfferId(null);
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="pb-10">
+        <Header onBack={() => navigate(-1)} title="Items" />
+        <p className="text-center text-sm text-gray-400 py-16">Loading...</p>
+      </div>
+    );
+  }
+
+  if (notFound || !trade) {
+    return (
+      <div className="pb-10">
+        <Header onBack={() => navigate(-1)} title="Items" />
+        <p className="text-center text-sm text-gray-400 py-16">This trade could not be found.</p>
+      </div>
+    );
+  }
 
   const itemInfo = (
     <>
@@ -55,7 +97,8 @@ export default function TradeDetailScreen() {
             {isOwner && <StatusPill status={getTradeStatus(trade)} />}
           </div>
           <p className="text-sm text-gray-500 mt-1">
-            Posted by {trade.posterName} • {trade.distanceKm}km
+            Posted by {trade.posterName}
+            {trade.distanceKm != null && ` • ${trade.distanceKm}km`}
           </p>
           {trade.location && <p className="text-sm text-gray-500 mt-0.5">📍 {trade.location}</p>}
         </div>
@@ -106,6 +149,10 @@ export default function TradeDetailScreen() {
               // Free item — nothing to negotiate, so skip the offer flow entirely
               // and go straight to messaging the poster to arrange pickup.
               <PrimaryButton onClick={() => navigate(`/trades/${trade.id}/messages`)}>Message</PrimaryButton>
+            ) : trade.status !== 'open' ? (
+              <p className="text-center text-sm text-gray-400 py-2">
+                This trade is no longer accepting offers.
+              </p>
             ) : (
               <PrimaryButton
                 onClick={() => navigate('/trades/scan', { state: { context: 'bidding', tradeId: trade.id } })}
@@ -137,6 +184,7 @@ export default function TradeDetailScreen() {
 
       <div className="flex-1 overflow-y-auto min-h-0 border-t border-gray-100 px-5 py-5">
         <h2 className="font-bold text-gray-900 mb-3">Received Offers</h2>
+        {error && <p className="text-sm text-red-500 mb-3">{error}</p>}
         {offers.length === 0 ? (
           <p className="text-center text-sm text-gray-400 py-8">No offers received yet.</p>
         ) : (
@@ -146,7 +194,7 @@ export default function TradeDetailScreen() {
                 <div className="flex items-start justify-between gap-2">
                   <div>
                     <p className="font-bold text-gray-900">{offer.offererName}</p>
-                    <p className="text-xs text-gray-400">{offer.createdAt}</p>
+                    <p className="text-xs text-gray-400">{new Date(offer.createdAt).toLocaleDateString()}</p>
                   </div>
                   <StatusPill status={offer.status} />
                 </div>
@@ -164,19 +212,25 @@ export default function TradeDetailScreen() {
                   <MaterialTag material={offer.material} />
                 </div>
 
-                {offer.status === 'Pending' && (
+                {offer.status === 'pending' && (
                   <div className="space-y-2 pt-1">
-                    <PrimaryButton onClick={() => decide(offer.id, 'Accepted')}>Accept Offer</PrimaryButton>
+                    <PrimaryButton
+                      onClick={() => decide(offer.id, 'accept')}
+                      disabled={decidingOfferId === offer.id}
+                    >
+                      {decidingOfferId === offer.id ? 'Accepting...' : 'Accept Offer'}
+                    </PrimaryButton>
                     <button
-                      onClick={() => decide(offer.id, 'Declined')}
-                      className="w-full text-center text-sm text-gray-500 font-medium"
+                      onClick={() => decide(offer.id, 'decline')}
+                      disabled={decidingOfferId === offer.id}
+                      className="w-full text-center text-sm text-gray-500 font-medium disabled:opacity-50"
                     >
                       Decline
                     </button>
                   </div>
                 )}
 
-                {offer.status === 'Accepted' && (
+                {offer.status === 'accepted' && (
                   <PrimaryButton onClick={() => navigate(`/trades/${trade.id}/messages`)}>
                     <span className="flex items-center justify-center gap-2">
                       <MessageCircle size={18} />

@@ -1,8 +1,8 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import Header from '../components/layout/Header';
 import PrimaryButton from '../components/common/PrimaryButton';
-import { mockTrackTrades } from '../data/mockTrades';
+import { fetchTradeById, updateTrade } from '../services/api';
 
 const inputClass =
   'w-full bg-gray-100 rounded-xl px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-brand-500';
@@ -14,22 +14,44 @@ const TRADE_FOR_OPTIONS = [
   { key: 'negotiating', label: 'Negotiable' },
 ];
 
-/**
- * Edits one of your own trades (mockTrackTrades). Mock only — mutates the
- * trade object in place (same pattern as the auth mock users) so the change
- * shows up immediately across the app for this session, without a backend.
- */
 export default function EditListingScreen() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const trade = mockTrackTrades.find((t) => t.id === id);
+  const [trade, setTrade] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState('');
 
-  const [name, setName] = useState(trade?.name || '');
-  const [description, setDescription] = useState(trade?.description || '');
-  const [weightKg, setWeightKg] = useState(trade?.weightKg ?? '');
-  const [quantity, setQuantity] = useState(trade?.quantity ?? '');
-  const [tradingForType, setTradingForType] = useState(trade?.tradingFor?.type || 'negotiating');
-  const [tradingForValue, setTradingForValue] = useState(trade?.tradingFor?.value || '');
+  const [name, setName] = useState('');
+  const [description, setDescription] = useState('');
+  const [weightKg, setWeightKg] = useState('');
+  const [quantity, setQuantity] = useState('');
+  const [tradingForType, setTradingForType] = useState('negotiating');
+  const [tradingForValue, setTradingForValue] = useState('');
+
+  useEffect(() => {
+    fetchTradeById(id)
+      .then((data) => {
+        setTrade(data);
+        setName(data.name || '');
+        setDescription(data.description || '');
+        setWeightKg(data.weightKg ?? '');
+        setQuantity(data.quantity ?? '');
+        setTradingForType(data.tradingFor?.type || 'negotiating');
+        setTradingForValue(data.tradingFor?.value || '');
+      })
+      .catch(() => setTrade(null))
+      .finally(() => setLoading(false));
+  }, [id]);
+
+  if (loading) {
+    return (
+      <div className="pb-10">
+        <Header onBack={() => navigate(-1)} title="Edit Listing" />
+        <p className="text-center text-sm text-gray-400 py-16">Loading...</p>
+      </div>
+    );
+  }
 
   if (!trade) {
     return (
@@ -40,19 +62,27 @@ export default function EditListingScreen() {
     );
   }
 
-  const canSave = name.trim().length > 0 && Number(weightKg) > 0 && Number(quantity) > 0;
+  const canSave = name.trim().length > 0 && Number(weightKg) > 0 && Number(quantity) > 0 && !saving;
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!canSave) return;
-    trade.name = name.trim();
-    trade.description = description.trim();
-    trade.weightKg = Number(weightKg);
-    trade.quantity = Number(quantity);
-    trade.tradingFor =
-      tradingForType === 'specific'
-        ? { type: 'specific', value: tradingForValue.trim() }
-        : { type: tradingForType };
-    navigate(`/trades/${trade.id}?owner=1`, { replace: true });
+    setSaving(true);
+    setError('');
+    try {
+      await updateTrade(trade.id, {
+        itemName: name.trim(),
+        description: description.trim(),
+        weightKg: Number(weightKg),
+        quantity: Number(quantity),
+        tradingForType,
+        tradingForValue: tradingForType === 'specific' ? tradingForValue.trim() : undefined,
+      });
+      navigate(`/trades/${trade.id}?owner=1`, { replace: true });
+    } catch (err) {
+      setError(err.message || 'Could not save changes.');
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
@@ -121,8 +151,10 @@ export default function EditListingScreen() {
           )}
         </div>
 
+        {error && <p className="text-sm text-red-500">{error}</p>}
+
         <PrimaryButton onClick={handleSave} disabled={!canSave}>
-          Save Changes
+          {saving ? 'Saving...' : 'Save Changes'}
         </PrimaryButton>
       </div>
     </div>

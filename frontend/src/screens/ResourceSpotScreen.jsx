@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import Header from '../components/layout/Header';
 import BottomNav from '../components/layout/BottomNav';
 import CameraViewfinder from '../components/scan/CameraViewfinder';
+import { setPendingCapture } from '../lib/pendingCapture';
 
 /**
  * Bottom-nav "Camera" tab. Captures a photo of a resource spot (a location
@@ -12,11 +13,11 @@ import CameraViewfinder from '../components/scan/CameraViewfinder';
  */
 export default function ResourceSpotScreen() {
   const navigate = useNavigate();
-  const [previewImage, setPreviewImage] = useState(null);
+  const [previewUrl, setPreviewUrl] = useState(null);
 
-  const handleCapture = () => {
-    // Placeholder: real camera capture wiring is an Integration Lead concern.
-    setPreviewImage('captured-placeholder');
+  const handleFileSelected = (file) => {
+    setPendingCapture(file);
+    setPreviewUrl(URL.createObjectURL(file));
   };
 
   const goToConfirm = () => {
@@ -28,12 +29,12 @@ export default function ResourceSpotScreen() {
       <Header title="Resource Spot" showBell={false} />
       <div className="flex-1 relative min-h-0 pb-16">
         <CameraViewfinder
-          previewImage={previewImage}
-          onCapture={previewImage ? goToConfirm : handleCapture}
-          onUpload={goToConfirm}
+          previewImage={previewUrl}
+          onCapture={goToConfirm}
+          onFileSelected={handleFileSelected}
           onFlip={() => {}}
         />
-        {previewImage && (
+        {previewUrl && (
           <div className="absolute bottom-0 left-0 right-0 px-4 py-3 bg-white border-t border-gray-100">
             <p className="text-sm text-gray-500 text-center">Photo captured. Tap shutter again to continue</p>
           </div>

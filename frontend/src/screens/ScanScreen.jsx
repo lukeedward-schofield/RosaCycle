@@ -3,6 +3,7 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import Header from '../components/layout/Header';
 import BottomNav from '../components/layout/BottomNav';
 import CameraViewfinder from '../components/scan/CameraViewfinder';
+import { setPendingCapture } from '../lib/pendingCapture';
 
 /**
  * AI scan step for a Trade item — reached only from within the Trades flow
@@ -16,12 +17,11 @@ export default function ScanScreen() {
   const context = location.state?.context || 'posting'; // 'posting' | 'bidding'
   const tradeId = location.state?.tradeId;
 
-  const [previewImage, setPreviewImage] = useState(null);
+  const [previewUrl, setPreviewUrl] = useState(null);
 
-  const handleCapture = () => {
-    // Placeholder: real camera capture wiring is an Integration Lead concern.
-    // For now, simulate a captured photo so the flow can be demoed end-to-end.
-    setPreviewImage('captured-placeholder');
+  const handleFileSelected = (file) => {
+    setPendingCapture(file);
+    setPreviewUrl(URL.createObjectURL(file));
   };
 
   const goToConfirm = () => {
@@ -33,12 +33,12 @@ export default function ScanScreen() {
       <Header title={context === 'posting' ? 'Post an Item' : 'Create Offer'} showBell={false} />
       <div className="flex-1 relative min-h-0 pb-16">
         <CameraViewfinder
-          previewImage={previewImage}
-          onCapture={previewImage ? goToConfirm : handleCapture}
-          onUpload={goToConfirm}
+          previewImage={previewUrl}
+          onCapture={goToConfirm}
+          onFileSelected={handleFileSelected}
           onFlip={() => {}}
         />
-        {previewImage && (
+        {previewUrl && (
           <div className="absolute bottom-0 left-0 right-0 px-4 py-3 bg-white border-t border-gray-100">
             <p className="text-sm text-gray-500 text-center">Photo captured. Tap shutter again to continue</p>
           </div>

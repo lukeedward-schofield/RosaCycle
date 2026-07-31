@@ -41,14 +41,14 @@ export default function SignUpScreen() {
     setLoading(true);
     setError('');
     try {
-      const user = await registerUser({
+      const { user, token } = await registerUser({
         firstName: firstName.trim(),
         lastName: lastName.trim(),
         username: username.trim(),
         email: email.trim(),
         password,
       });
-      login(user);
+      login(user, token);
       navigate('/trades', { replace: true });
     } catch (err) {
       setError(err.message || 'Something went wrong. Please try again.');

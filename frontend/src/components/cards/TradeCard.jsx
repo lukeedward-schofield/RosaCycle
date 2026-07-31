@@ -1,6 +1,6 @@
 import MaterialTag from '../common/MaterialTag';
 import StatusPill from '../common/StatusPill';
-import { getTradeStatus } from '../../data/mockTrades';
+import { getTradeStatus } from '../../utils/tradeFormat';
 
 /**
  * Two visual variants:

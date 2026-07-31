@@ -1,15 +1,20 @@
+import { useEffect, useState } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import ConfirmationScreen from '../components/common/ConfirmationScreen';
 import StatusPill from '../components/common/StatusPill';
 import EcoImpactBox from '../components/trade/EcoImpactBox';
-import { mockTrades } from '../data/mockTrades';
+import { fetchTradeById } from '../services/api';
 
 export default function OfferSentScreen() {
   const navigate = useNavigate();
   const { id } = useParams();
   const location = useLocation();
   const offer = location.state?.offer;
-  const trade = mockTrades.find((t) => t.id === id);
+  const [trade, setTrade] = useState(null);
+
+  useEffect(() => {
+    fetchTradeById(id).then(setTrade).catch(() => setTrade(null));
+  }, [id]);
 
   return (
     <ConfirmationScreen
