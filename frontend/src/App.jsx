@@ -1,23 +1,23 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
-import { AuthProvider, useAuth } from './context/AuthContext';
+import { AuthProvider, useAuth } from '@/features/auth/AuthContext';
 
-import SignInScreen from './screens/auth/SignInScreen';
-import SignUpScreen from './screens/auth/SignUpScreen';
-import EditProfileScreen from './screens/EditProfileScreen';
-import TradesScreen from './screens/TradesScreen';
-import TradeDetailScreen from './screens/TradeDetailScreen';
-import EditListingScreen from './screens/EditListingScreen';
-import ViewOfferScreen from './screens/ViewOfferScreen';
-import ScanScreen from './screens/ScanScreen';
-import ScanConfirmScreen from './screens/ScanConfirmScreen';
-import TradeCreatedScreen from './screens/TradeCreatedScreen';
-import OfferSentScreen from './screens/OfferSentScreen';
-import MessageThreadScreen from './screens/MessageThreadScreen';
-import ResourceSpotScreen from './screens/ResourceSpotScreen';
-import ResourceSpotConfirmScreen from './screens/ResourceSpotConfirmScreen';
-import SpotReportedScreen from './screens/SpotReportedScreen';
-import MapScreen from './screens/MapScreen';
-import RateTraderScreen from './screens/RateTraderScreen';
+import SignInScreen from '@/features/auth/screens/SignInScreen';
+import SignUpScreen from '@/features/auth/screens/SignUpScreen';
+import EditProfileScreen from '@/features/profile/screens/EditProfileScreen';
+import TradesScreen from '@/features/trades/screens/TradesScreen';
+import TradeDetailScreen from '@/features/trades/screens/TradeDetailScreen';
+import EditListingScreen from '@/features/trades/screens/EditListingScreen';
+import ViewOfferScreen from '@/features/trades/screens/ViewOfferScreen';
+import ScanScreen from '@/features/scan/screens/ScanScreen';
+import ScanConfirmScreen from '@/features/scan/screens/ScanConfirmScreen';
+import TradeCreatedScreen from '@/features/trades/screens/TradeCreatedScreen';
+import OfferSentScreen from '@/features/trades/screens/OfferSentScreen';
+import MessageThreadScreen from '@/features/trades/screens/MessageThreadScreen';
+import ResourceSpotScreen from '@/features/map/screens/ResourceSpotScreen';
+import ResourceSpotConfirmScreen from '@/features/map/screens/ResourceSpotConfirmScreen';
+import SpotReportedScreen from '@/features/map/screens/SpotReportedScreen';
+import MapScreen from '@/features/map/screens/MapScreen';
+import RateTraderScreen from '@/features/trades/screens/RateTraderScreen';
 
 // Gate for screens that require a signed-in user; bounces to /signin otherwise.
 function RequireAuth({ children }) {
