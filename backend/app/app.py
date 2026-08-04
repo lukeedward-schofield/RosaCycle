@@ -5,9 +5,9 @@ from flask_cors import CORS
 from flask_jwt_extended import JWTManager
 
 from app.config import Config
-from app.database import db, migrate
-from app.utils.errors import register_error_handlers
-from app.utils.rate_limit import limiter
+from app.shared.database import db, migrate
+from app.shared.utils.errors import register_error_handlers
+from app.shared.utils.rate_limit import limiter
 
 
 def create_app(config_object=Config):
@@ -18,7 +18,7 @@ def create_app(config_object=Config):
     migrate.init_app(app, db)
 
     with app.app_context():
-        from app import models  # noqa: F401  (registers models with SQLAlchemy metadata)
+        from app.shared import models  # noqa: F401  (registers models with SQLAlchemy metadata)
     JWTManager(app)
     CORS(app, origins=app.config["CORS_ORIGINS"], supports_credentials=True)
     limiter.init_app(app)
@@ -49,14 +49,14 @@ def create_app(config_object=Config):
 
 
 def _register_blueprints(app):
-    from app.routes.auth_routes import auth_bp
-    from app.routes.user_routes import user_bp
-    from app.routes.trade_routes import trade_bp
-    from app.routes.offer_routes import offer_bp
-    from app.routes.resource_spot_routes import resource_spot_bp
-    from app.routes.notification_routes import notification_bp
-    from app.routes.rating_routes import rating_bp
-    from app.routes.ai_routes import ai_bp
+    from app.auth.routes import auth_bp
+    from app.profile.routes import user_bp
+    from app.trades.routes import trade_bp
+    from app.trades.offer.routes import offer_bp
+    from app.map.routes import resource_spot_bp
+    from app.shared.notification.routes import notification_bp
+    from app.shared.rating.routes import rating_bp
+    from app.scan.routes import ai_bp
 
     app.register_blueprint(auth_bp)
     app.register_blueprint(user_bp)
