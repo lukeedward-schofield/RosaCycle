@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { LogOut } from 'lucide-react';
+import { LogOut, Star } from 'lucide-react';
 import { useAuth } from '@/features/auth/AuthContext';
 
 export default function UserMenu() {
@@ -38,9 +38,15 @@ export default function UserMenu() {
         onClick={() => setOpen((v) => !v)}
         aria-label="User profile"
         aria-expanded={open}
-        className="w-8 h-8 rounded-full bg-brand-600 text-white text-sm font-semibold flex items-center justify-center active:scale-95 transition-transform"
+        className="w-8 h-8 rounded-full overflow-hidden active:scale-95 transition-transform"
       >
-        {initial}
+        {user?.profileImage ? (
+          <img src={user.profileImage} alt={displayName} className="w-8 h-8 object-cover" />
+        ) : (
+          <span className="w-8 h-8 bg-brand-600 text-white text-sm font-semibold flex items-center justify-center">
+            {initial}
+          </span>
+        )}
       </button>
 
       {open && (
@@ -51,6 +57,12 @@ export default function UserMenu() {
           >
             <p className="text-sm font-semibold text-gray-900 truncate">{displayName || 'RosaCycle User'}</p>
             <p className="text-xs text-gray-500 truncate">{user?.email}</p>
+            {typeof user?.rating === 'number' && (
+              <p className="flex items-center gap-1 text-xs text-gray-500 mt-1">
+                <Star size={12} className="fill-yellow-400 text-yellow-400" />
+                {user.rating.toFixed(1)}
+              </p>
+            )}
           </button>
           <button
             onClick={handleLogout}

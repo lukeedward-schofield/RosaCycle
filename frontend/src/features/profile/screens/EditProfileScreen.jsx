@@ -1,6 +1,6 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { LogOut } from 'lucide-react';
+import { LogOut, Camera, Star } from 'lucide-react';
 import Header from '@/shared/components/layout/Header';
 import PrimaryButton from '@/shared/components/common/PrimaryButton';
 import PasswordInput from '@/shared/components/common/PasswordInput';
@@ -13,6 +13,8 @@ const labelClass = 'text-sm font-medium text-gray-700 mb-1 block';
 export default function EditProfileScreen() {
   const navigate = useNavigate();
   const { user, updateUser, logout } = useAuth();
+  const fileInputRef = useRef(null);
+
   const [firstName, setFirstName] = useState(user?.firstName || '');
   const [lastName, setLastName] = useState(user?.lastName || '');
   const [username, setUsername] = useState(user?.username || '');
@@ -20,6 +22,8 @@ export default function EditProfileScreen() {
   const [currentPassword, setCurrentPassword] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [imageFile, setImageFile] = useState(null);
+  const [imagePreview, setImagePreview] = useState(user?.profileImage || null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
 
@@ -30,7 +34,8 @@ export default function EditProfileScreen() {
     lastName.trim() !== (user?.lastName || '') ||
     username.trim() !== (user?.username || '') ||
     email.trim() !== (user?.email || '') ||
-    changingPassword;
+    changingPassword ||
+    imageFile !== null;
 
   const canSave =
     hasChanges &&
@@ -40,6 +45,17 @@ export default function EditProfileScreen() {
     /\S+@\S+\.\S+/.test(email) &&
     (!changingPassword ||
       (currentPassword.length > 0 && password.length >= 6 && password === confirmPassword));
+
+  const initial = firstName?.[0]?.toUpperCase() || username?.[0]?.toUpperCase() || '?';
+
+  const handlePickImage = () => fileInputRef.current?.click();
+
+  const handleImageChange = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setImageFile(file);
+    setImagePreview(URL.createObjectURL(file));
+  };
 
   const handleSave = async () => {
     if (!canSave || saving) return;
@@ -53,6 +69,7 @@ export default function EditProfileScreen() {
         email: email.trim(),
       };
       if (changingPassword) updates.password = password;
+      if (imageFile) updates.imageFile = imageFile;
       await updateUser(updates, changingPassword ? currentPassword : undefined);
       navigate(-1);
     } catch (err) {
@@ -72,6 +89,41 @@ export default function EditProfileScreen() {
       <Header onBack={() => navigate(-1)} title="Edit Profile" />
 
       <div className="p-5 space-y-4">
+        {/* Avatar */}
+        <div className="flex flex-col items-center gap-2 py-2">
+          <button
+            onClick={handlePickImage}
+            className="relative w-24 h-24 rounded-full active:scale-95 transition-transform"
+            aria-label="Change profile photo"
+          >
+            {imagePreview ? (
+              <img src={imagePreview} alt="Profile" className="w-24 h-24 rounded-full object-cover" />
+            ) : (
+              <div className="w-24 h-24 rounded-full bg-brand-600 text-white text-3xl font-semibold flex items-center justify-center">
+                {initial}
+              </div>
+            )}
+            <span className="absolute bottom-0 right-0 w-8 h-8 rounded-full bg-gray-900 text-white flex items-center justify-center border-2 border-white">
+              <Camera size={15} />
+            </span>
+          </button>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/*"
+            onChange={handleImageChange}
+            className="hidden"
+          />
+
+          {typeof user?.rating === 'number' && (
+            <div className="flex items-center gap-1 text-sm text-gray-600 mt-1">
+              <Star size={15} className="fill-yellow-400 text-yellow-400" />
+              <span className="font-semibold">{user.rating.toFixed(1)}</span>
+              <span className="text-gray-400">rating</span>
+            </div>
+          )}
+        </div>
+
         <fieldset className="space-y-4">
           <div className="grid grid-cols-2 gap-3">
             <div>
