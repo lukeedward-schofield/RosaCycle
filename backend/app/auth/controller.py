@@ -4,7 +4,7 @@ from flask_jwt_extended import create_access_token
 from app.auth.schema import serialize_user
 from app.auth.service import authenticate_user, register_user
 from app.services.auth_service import google_login_or_register
-from app.utils.errors import ValidationError
+from app.shared.utils.errors import ValidationError
 
 
 def register():
