@@ -2,7 +2,6 @@ from app.database import db
 from app.models.enums import UserRole
 from app.utils.mixins import utcnow, uuid_pk_column
 
-
 class User(db.Model):
     __tablename__ = "users"
 
@@ -11,12 +10,13 @@ class User(db.Model):
     first_name = db.Column(db.String(50), nullable=False)
     last_name = db.Column(db.String(50), nullable=False)
     email = db.Column(db.String(255), unique=True, nullable=False, index=True)
-    password_hash = db.Column(db.String(255), nullable=False)
+    password_hash = db.Column(db.String(255), nullable=True)  # <-- Changed to True for OAuth users
+    google_id = db.Column(db.String(255), unique=True, nullable=True, index=True)  # <-- Added
     profile_image_path = db.Column(db.String(255), nullable=True)
     role = db.Column(db.Enum(UserRole), default=UserRole.USER, nullable=False)
     created_at = db.Column(db.DateTime(timezone=True), default=utcnow, nullable=False)
     profile_updated_at = db.Column(db.DateTime(timezone=True), nullable=True)
-
+    
     trades = db.relationship("Trade", back_populates="owner", lazy="dynamic")
     offers = db.relationship("Offer", back_populates="offerer", lazy="dynamic")
     resource_spots = db.relationship("ResourceSpot", back_populates="reporter", lazy="dynamic")

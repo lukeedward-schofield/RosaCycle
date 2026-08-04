@@ -4,10 +4,10 @@ import os
 class Config:
     SECRET_KEY = os.environ.get("SECRET_KEY", "dev")
     JWT_SECRET_KEY = os.environ.get("JWT_SECRET_KEY", "dev")
-
-    SQLALCHEMY_DATABASE_URI = os.environ.get(
-        "DATABASE_URL", "postgresql://postgres:postgres@localhost:5432/rosacycle"
-    )
+    
+    GOOGLE_CLIENT_ID = os.environ.get("GOOGLE_CLIENT_ID", "870031204616-e1cvvs7qd31ik6ef993f70baji0v1273.apps.googleusercontent.com")
+    
+    SQLALCHEMY_DATABASE_URI = "postgresql://postgres:luke123@localhost:5433/rosacycle"
     SQLALCHEMY_TRACK_MODIFICATIONS = False
 
     UPLOAD_ROOT = os.environ.get("UPLOAD_ROOT", os.path.join("instance", "uploads"))

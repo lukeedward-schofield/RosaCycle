@@ -3,10 +3,12 @@ from flask_jwt_extended import create_access_token
 
 from app.schemas.user_schema import serialize_user
 from app.services.user_service import authenticate_user, register_user
+from app.services.auth_service import google_login_or_register
 from app.utils.errors import ValidationError
 
 
 def register():
+    
     body = request.get_json(silent=True) or {}
     required = ("username", "firstName", "lastName", "email", "password")
     missing = [field for field in required if not body.get(field)]
@@ -36,3 +38,14 @@ def login():
 
 def logout():
     return {"success": True}, 200
+
+def google_login():
+    body = request.get_json(silent=True) or {}
+    token = body.get("token")  # Frontend sends Google ID Token here
+    if not token:
+        raise ValidationError("Google token is required.")
+
+    user = google_login_or_register(token)
+    access_token = create_access_token(identity=str(user.id))
+    
+    return {"token": access_token, "user": serialize_user(user)}, 200
