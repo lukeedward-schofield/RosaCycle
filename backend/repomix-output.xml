@@ -41,70 +41,83 @@ The content is organized as follows:
 
 <directory_structure>
 app/
-  controller/
+  auth/
     __init__.py
-    ai_controller.py
-    auth_controller.py
-    notification_controller.py
-    offer_controller.py
-    rating_controller.py
-    resource_spot_controller.py
-    trade_controller.py
-    user_controller.py
-  database/
+    controller.py
+    repository.py
+    routes.py
+    schema.py
+    service.py
+    user_model.py
+    utils.py
+  map/
     __init__.py
-  models/
+    controller.py
+    model.py
+    repository.py
+    routes.py
+    schema.py
+    service.py
+  profile/
     __init__.py
-    enums.py
-    notification.py
-    offer.py
-    rating.py
-    resource_spot.py
-    trade.py
-    user.py
-  repositories/
+    controller.py
+    model.py
+    repository.py
+    routes.py
+    schema.py
+    service.py
+  scan/
     __init__.py
-    notification_repository.py
-    offer_repository.py
-    rating_repository.py
-    resource_spot_repository.py
-    trade_repository.py
-    user_repository.py
-  routes/
-    __init__.py
-    ai_routes.py
-    auth_routes.py
-    notification_routes.py
-    offer_routes.py
-    rating_routes.py
-    resource_spot_routes.py
-    trade_routes.py
-    user_routes.py
-  schemas/
-    __init__.py
-    notification_schema.py
-    offer_schema.py
-    rating_schema.py
-    resource_spot_schema.py
-    trade_schema.py
-    user_schema.py
+    controller.py
+    routes.py
+    service.py
   services/
+    auth_service.py
+  shared/
+    database/
+      __init__.py
+    models/
+      __init__.py
+      enums.py
+    notification/
+      __init__.py
+      controller.py
+      model.py
+      repository.py
+      routes.py
+      schema.py
+      service.py
+    rating/
+      __init__.py
+      controller.py
+      model.py
+      repository.py
+      routes.py
+      schema.py
+      service.py
+    utils/
+      __init__.py
+      errors.py
+      file_storage.py
+      mixins.py
+      pagination.py
+      rate_limit.py
+  trades/
+    offer/
+      __init__.py
+      controller.py
+      model.py
+      repository.py
+      routes.py
+      schema.py
+      service.py
     __init__.py
-    ai_service.py
-    notification_service.py
-    offer_service.py
-    rating_service.py
-    resource_spot_service.py
-    trade_service.py
-    user_service.py
-  utils/
-    __init__.py
-    auth.py
-    errors.py
-    file_storage.py
-    mixins.py
-    pagination.py
-    rate_limit.py
+    controller.py
+    model.py
+    repository.py
+    routes.py
+    schema.py
+    service.py
   __init__.py
   app.py
   config.py
@@ -131,41 +144,22 @@ seed.py
 <files>
 This section contains the contents of the repository's files.
 
-<file path="app/controller/__init__.py">
+<file path="app/auth/__init__.py">
 
 </file>
 
-<file path="app/controller/ai_controller.py">
-from flask import request
-
-from app.services.ai_service import assess_resource_spot_photo, assess_trade_photo
-from app.utils.errors import ValidationError
-
-
-def assess_trade():
-    image_file = request.files.get("image")
-    if image_file is None:
-        raise ValidationError("An image file is required.")
-    return assess_trade_photo(image_file), 200
-
-
-def assess_resource_spot():
-    image_file = request.files.get("image")
-    if image_file is None:
-        raise ValidationError("An image file is required.")
-    return assess_resource_spot_photo(image_file), 200
-</file>
-
-<file path="app/controller/auth_controller.py">
+<file path="app/auth/controller.py">
 from flask import request
 from flask_jwt_extended import create_access_token
 
-from app.schemas.user_schema import serialize_user
-from app.services.user_service import authenticate_user, register_user
+from app.auth.schema import serialize_user
+from app.auth.service import authenticate_user, register_user
+from app.services.auth_service import google_login_or_register
 from app.utils.errors import ValidationError
 
 
 def register():
+    
     body = request.get_json(silent=True) or {}
     required = ("username", "firstName", "lastName", "email", "password")
     missing = [field for field in required if not body.get(field)]
@@ -195,108 +189,247 @@ def login():
 
 def logout():
     return {"success": True}, 200
-</file>
 
-<file path="app/controller/notification_controller.py">
-from flask import g
-
-from app.schemas.notification_schema import serialize_notification
-from app.services.notification_service import list_for_user, mark_read, unread_count
-
-
-def list_notifications():
-    notifications = list_for_user(g.current_user.id)
-    return [serialize_notification(n) for n in notifications], 200
-
-
-def unread_notification_count():
-    return {"count": unread_count(g.current_user.id)}, 200
-
-
-def mark_notification_read(notification_id):
-    notification = mark_read(notification_id, g.current_user.id)
-    return serialize_notification(notification), 200
-</file>
-
-<file path="app/controller/offer_controller.py">
-from flask import g, request
-
-from app.schemas.offer_schema import serialize_offer
-from app.services.offer_service import (
-    accept_offer as accept_offer_service,
-    decline_offer as decline_offer_service,
-    list_by_trade,
-    list_received,
-    list_sent,
-    send_offer as send_offer_service,
-)
-
-
-def send_offer(trade_id):
-    offer = send_offer_service(
-        trade_id,
-        g.current_user.id,
-        fields=request.form,
-        image_file=request.files.get("image"),
-    )
-    return serialize_offer(offer), 201
-
-
-def offers_for_trade(trade_id):
-    offers = list_by_trade(trade_id)
-    return [serialize_offer(o) for o in offers], 200
-
-
-def accept_offer(offer_id):
-    offer = accept_offer_service(offer_id, g.current_user.id)
-    return serialize_offer(offer), 200
-
-
-def decline_offer(offer_id):
-    offer = decline_offer_service(offer_id, g.current_user.id)
-    return serialize_offer(offer), 200
-
-
-def my_sent_offers():
-    offers = list_sent(g.current_user.id)
-    return [serialize_offer(o) for o in offers], 200
-
-
-def my_received_offers():
-    offers = list_received(g.current_user.id)
-    return [serialize_offer(o) for o in offers], 200
-</file>
-
-<file path="app/controller/rating_controller.py">
-from flask import g, request
-
-from app.schemas.rating_schema import serialize_rating
-from app.services.rating_service import list_for_user, rate_trade
-from app.utils.errors import ValidationError
-
-
-def create_rating(trade_id):
+def google_login():
     body = request.get_json(silent=True) or {}
-    if "score" not in body:
-        raise ValidationError("score is required.")
+    token = body.get("token")  # Frontend sends Google ID Token here
+    if not token:
+        raise ValidationError("Google token is required.")
 
-    rating = rate_trade(trade_id, g.current_user.id, score=body["score"], comment=body.get("comment"))
-    return serialize_rating(rating), 201
-
-
-def ratings_for_user(user_id):
-    result = list_for_user(user_id)
-    return {
-        "ratings": [serialize_rating(r) for r in result["ratings"]],
-        "average": result["average"],
-    }, 200
+    user = google_login_or_register(token)
+    access_token = create_access_token(identity=str(user.id))
+    
+    return {"token": access_token, "user": serialize_user(user)}, 200
 </file>
 
-<file path="app/controller/resource_spot_controller.py">
+<file path="app/auth/repository.py">
+from app.database import db
+from app.auth.user_model import User
+
+
+def get_user_by_id(user_id):
+    return db.session.get(User, user_id)
+
+
+def get_user_by_email(email):
+    return User.query.filter(db.func.lower(User.email) == email.lower()).first()
+
+
+def get_user_by_username(username):
+    return User.query.filter(db.func.lower(User.username) == username.lower()).first()
+
+
+def create_user(user):
+    db.session.add(user)
+    db.session.commit()
+    return user
+
+
+def save_user(user):
+    db.session.commit()
+    return user
+</file>
+
+<file path="app/auth/routes.py">
+from flask import Blueprint
+from app.auth import controller
+
+auth_bp = Blueprint("auth", __name__, url_prefix="/auth")
+
+@auth_bp.post("/register")
+def register():
+    return controller.register()
+
+@auth_bp.post("/login")
+def login():
+    return controller.login()
+
+@auth_bp.post("/logout")
+def logout():
+    return controller.logout()
+
+@auth_bp.post("/google")
+def google_login():
+    return controller.google_login()
+</file>
+
+<file path="app/auth/schema.py">
+from app.shared.utils.file_storage import build_media_url
+
+
+def serialize_user(user):
+    return {
+        "id": user.id,
+        "username": user.username,
+        "firstName": user.first_name,
+        "lastName": user.last_name,
+        "email": user.email,
+        "profileImage": build_media_url(user.profile_image_path),
+        "role": user.role.value,
+        "createdAt": user.created_at.isoformat(),
+    }
+</file>
+
+<file path="app/auth/service.py">
+from datetime import timedelta
+
+from flask import current_app
+
+from app.auth.user_model import User
+from app.auth.repository import (
+    create_user,
+    get_user_by_email,
+    get_user_by_id,
+    get_user_by_username,
+    save_user,
+)
+from app.auth.utils import hash_password, verify_password
+from app.shared.utils.errors import ConflictError, ForbiddenError, NotFoundError, ValidationError
+from app.shared.utils.file_storage import save_image
+from app.shared.utils.mixins import ensure_aware, utcnow
+
+
+def register_user(*, username, first_name, last_name, email, password):
+    if get_user_by_email(email) is not None:
+        raise ConflictError("An account with this email already exists.")
+    if get_user_by_username(username) is not None:
+        raise ConflictError("An account with this username already exists.")
+
+    user = User(
+        username=username,
+        first_name=first_name,
+        last_name=last_name,
+        email=email,
+        password_hash=hash_password(password),
+    )
+    return create_user(user)
+
+
+def authenticate_user(*, email, password):
+    user = get_user_by_email(email)
+    if user is None or not verify_password(password, user.password_hash):
+        raise ValidationError("Invalid email or password.", status_code=401)
+    return user
+
+
+def get_profile(user_id):
+    user = get_user_by_id(user_id)
+    if user is None:
+        raise NotFoundError("User not found.")
+    return user
+
+
+def update_profile(user_id, *, updates, current_password, image_file):
+    user = get_user_by_id(user_id)
+    if user is None:
+        raise NotFoundError("User not found.")
+
+    wants_sensitive_change = any(k in updates for k in ("password", "email", "username")) or image_file is not None
+    if wants_sensitive_change and user.profile_updated_at is not None:
+        cooldown = timedelta(days=current_app.config["PROFILE_EDIT_COOLDOWN_DAYS"])
+        next_allowed_at = ensure_aware(user.profile_updated_at) + cooldown
+        if utcnow() < next_allowed_at:
+            days_left = (next_allowed_at - utcnow()).days + 1
+            raise ConflictError(f"You can update your profile again in {days_left} day(s).")
+
+    if "password" in updates or "email" in updates or "username" in updates:
+        if not current_password or not verify_password(current_password, user.password_hash):
+            raise ForbiddenError("Current password is incorrect.")
+
+    if "first_name" in updates:
+        user.first_name = updates["first_name"]
+    if "last_name" in updates:
+        user.last_name = updates["last_name"]
+    if "username" in updates:
+        existing = get_user_by_username(updates["username"])
+        if existing is not None and existing.id != user.id:
+            raise ConflictError("An account with this username already exists.")
+        user.username = updates["username"]
+    if "email" in updates:
+        existing = get_user_by_email(updates["email"])
+        if existing is not None and existing.id != user.id:
+            raise ConflictError("An account with this email already exists.")
+        user.email = updates["email"]
+    if "password" in updates:
+        user.password_hash = hash_password(updates["password"])
+
+    if image_file is not None:
+        user.profile_image_path = save_image(image_file, "profiles")
+
+    if wants_sensitive_change:
+        user.profile_updated_at = utcnow()
+
+    return save_user(user)
+</file>
+
+<file path="app/auth/user_model.py">
+from app.shared.database import db
+from app.shared.models.enums import UserRole
+from app.shared.utils.mixins import utcnow, uuid_pk_column
+
+
+class User(db.Model):
+    __tablename__ = "users"
+
+    id = uuid_pk_column()
+    username = db.Column(db.String(50), unique=True, nullable=False, index=True)
+    first_name = db.Column(db.String(50), nullable=False)
+    last_name = db.Column(db.String(50), nullable=False)
+    email = db.Column(db.String(255), unique=True, nullable=False, index=True)
+    password_hash = db.Column(db.String(255), nullable=False)
+    profile_image_path = db.Column(db.String(255), nullable=True)
+    role = db.Column(db.Enum(UserRole), default=UserRole.USER, nullable=False)
+    created_at = db.Column(db.DateTime(timezone=True), default=utcnow, nullable=False)
+    profile_updated_at = db.Column(db.DateTime(timezone=True), nullable=True)
+
+    trades = db.relationship("Trade", back_populates="owner", lazy="dynamic")
+    offers = db.relationship("Offer", back_populates="offerer", lazy="dynamic")
+    resource_spots = db.relationship("ResourceSpot", back_populates="reporter", lazy="dynamic")
+    notifications = db.relationship("Notification", back_populates="recipient", lazy="dynamic")
+</file>
+
+<file path="app/auth/utils.py">
+from functools import wraps
+
+from flask import g
+from flask_jwt_extended import get_jwt_identity, verify_jwt_in_request
+from werkzeug.security import check_password_hash, generate_password_hash
+
+from app.shared.utils.errors import ApiError
+
+
+def hash_password(raw_password):
+    return generate_password_hash(raw_password)
+
+
+def verify_password(raw_password, password_hash):
+    return check_password_hash(password_hash, raw_password)
+
+
+def require_auth(fn):
+    @wraps(fn)
+    def wrapper(*args, **kwargs):
+        verify_jwt_in_request()
+        from app.profile.repository import get_user_by_id
+
+        user = get_user_by_id(get_jwt_identity())
+        if user is None:
+            raise ApiError("User not found.", 401)
+        g.current_user = user
+        return fn(*args, **kwargs)
+
+    return wrapper
+</file>
+
+<file path="app/map/__init__.py">
+
+</file>
+
+<file path="app/map/controller.py">
 from flask import g, request
 
-from app.schemas.resource_spot_schema import serialize_resource_spot
-from app.services.resource_spot_service import (
+from app.map.schema import serialize_resource_spot
+from app.map.service import (
     add_photo_update,
     get_spot,
     list_active,
@@ -334,238 +467,12 @@ def mark_collected(spot_id):
     return serialize_resource_spot(spot), 200
 </file>
 
-<file path="app/controller/trade_controller.py">
-from flask import g, request
-
-from app.schemas.trade_schema import serialize_trade
-from app.services.trade_service import (
-    create_trade as create_trade_service,
-    get_trade as get_trade_service,
-    list_browse,
-    list_mine,
-    update_trade as update_trade_service,
-)
-
-
-def browse_trades():
-    category = request.args.get("category")
-    location = request.args.get("location")
-    trades = list_browse(g.current_user.id, category=category, location=location)
-    return [serialize_trade(t) for t in trades], 200
-
-
-def my_trades():
-    trades = list_mine(g.current_user.id)
-    return [serialize_trade(t) for t in trades], 200
-
-
-def get_trade(trade_id):
-    trade = get_trade_service(trade_id)
-    return serialize_trade(trade), 200
-
-
-def create_trade():
-    trade = create_trade_service(
-        g.current_user.id,
-        fields=request.form,
-        image_file=request.files.get("image"),
-    )
-    return serialize_trade(trade), 201
-
-
-def update_trade(trade_id):
-    trade = update_trade_service(
-        trade_id,
-        g.current_user.id,
-        fields=request.form,
-        image_file=request.files.get("image"),
-    )
-    return serialize_trade(trade), 200
-</file>
-
-<file path="app/controller/user_controller.py">
-from flask import g, request
-
-from app.schemas.user_schema import serialize_user
-from app.services.user_service import update_profile
-
-
-def get_me():
-    return serialize_user(g.current_user), 200
-
-
-def update_me():
-    form = request.form
-    updates = {}
-    for form_key, field in (
-        ("firstName", "first_name"),
-        ("lastName", "last_name"),
-        ("username", "username"),
-        ("email", "email"),
-        ("password", "password"),
-    ):
-        if form_key in form and form[form_key]:
-            updates[field] = form[form_key]
-
-    current_password = form.get("currentPassword")
-    image_file = request.files.get("image")
-
-    user = update_profile(
-        g.current_user.id,
-        updates=updates,
-        current_password=current_password,
-        image_file=image_file,
-    )
-    return serialize_user(user), 200
-</file>
-
-<file path="app/database/__init__.py">
-from flask_sqlalchemy import SQLAlchemy
-from flask_migrate import Migrate
-
-db = SQLAlchemy()
-migrate = Migrate()
-</file>
-
-<file path="app/models/__init__.py">
-from app.models.user import User  # noqa: F401
-from app.models.trade import Trade  # noqa: F401
-from app.models.offer import Offer  # noqa: F401
-from app.models.resource_spot import ResourceSpot  # noqa: F401
-from app.models.notification import Notification  # noqa: F401
-from app.models.rating import Rating  # noqa: F401
-</file>
-
-<file path="app/models/enums.py">
-import enum
-
-
-class UserRole(str, enum.Enum):
-    USER = "user"
-    ADMIN = "admin"
-
-
-class TradeStatus(str, enum.Enum):
-    OPEN = "open"
-    RESERVED = "reserved"
-    COMPLETED = "completed"
-
-
-class OfferStatus(str, enum.Enum):
-    PENDING = "pending"
-    ACCEPTED = "accepted"
-    DECLINED = "declined"
-
-
-class ResourceSpotStatus(str, enum.Enum):
-    ACTIVE = "active"
-    COLLECTED = "collected"
-
-
-class TradingForType(str, enum.Enum):
-    SPECIFIC = "specific"
-    NOTHING = "nothing"
-    NEGOTIATING = "negotiating"
-
-
-class NotificationType(str, enum.Enum):
-    OFFER_RECEIVED = "offer_received"
-    OFFER_ACCEPTED = "offer_accepted"
-    OFFER_DECLINED = "offer_declined"
-</file>
-
-<file path="app/models/notification.py">
-from app.database import db
-from app.models.enums import NotificationType
-from app.utils.mixins import utcnow, uuid_pk_column
-
-
-class Notification(db.Model):
-    __tablename__ = "notifications"
-
-    id = uuid_pk_column()
-    recipient_id = db.Column(db.String(36), db.ForeignKey("users.id"), nullable=False, index=True)
-
-    type = db.Column(db.Enum(NotificationType), nullable=False)
-    title = db.Column(db.String(120), nullable=False)
-    body = db.Column(db.String(255), nullable=False)
-
-    related_trade_id = db.Column(db.String(36), db.ForeignKey("trades.id"), nullable=True)
-    related_offer_id = db.Column(db.String(36), db.ForeignKey("offers.id"), nullable=True)
-
-    is_read = db.Column(db.Boolean, nullable=False, default=False, index=True)
-    created_at = db.Column(db.DateTime(timezone=True), default=utcnow, nullable=False)
-
-    recipient = db.relationship("User", back_populates="notifications")
-</file>
-
-<file path="app/models/offer.py">
-from app.database import db
-from app.models.enums import OfferStatus
-from app.utils.mixins import utcnow, uuid_pk_column
-
-
-class Offer(db.Model):
-    __tablename__ = "offers"
-    __table_args__ = (
-        db.Index(
-            "ix_offers_one_pending_per_trade",
-            "trade_id",
-            unique=True,
-            postgresql_where=db.text("status = 'PENDING'"),
-            sqlite_where=db.text("status = 'PENDING'"),
-        ),
-    )
-
-    id = uuid_pk_column()
-    trade_id = db.Column(db.String(36), db.ForeignKey("trades.id"), nullable=False, index=True)
-    offerer_id = db.Column(db.String(36), db.ForeignKey("users.id"), nullable=False, index=True)
-
-    item_name = db.Column(db.String(120), nullable=False)
-    category = db.Column(db.String(50), nullable=False)
-    material = db.Column(db.String(120), nullable=False)
-    weight_kg = db.Column(db.Numeric(8, 2), nullable=True)
-    description = db.Column(db.Text, nullable=True)
-    image_path = db.Column(db.String(255), nullable=True)
-
-    status = db.Column(db.Enum(OfferStatus), nullable=False, default=OfferStatus.PENDING, index=True)
-
-    created_at = db.Column(db.DateTime(timezone=True), default=utcnow, nullable=False)
-    decided_at = db.Column(db.DateTime(timezone=True), nullable=True)
-
-    trade = db.relationship("Trade", back_populates="offers")
-    offerer = db.relationship("User", back_populates="offers")
-</file>
-
-<file path="app/models/rating.py">
-from app.database import db
-from app.utils.mixins import utcnow, uuid_pk_column
-
-
-class Rating(db.Model):
-    __tablename__ = "ratings"
-    __table_args__ = (
-        db.UniqueConstraint("trade_id", "rater_id", name="uq_rating_trade_rater"),
-        db.CheckConstraint("score >= 1 AND score <= 5", name="ck_rating_score_range"),
-    )
-
-    id = uuid_pk_column()
-    trade_id = db.Column(db.String(36), db.ForeignKey("trades.id"), nullable=False, index=True)
-    rater_id = db.Column(db.String(36), db.ForeignKey("users.id"), nullable=False, index=True)
-    rated_id = db.Column(db.String(36), db.ForeignKey("users.id"), nullable=False, index=True)
-
-    score = db.Column(db.Integer, nullable=False)
-    comment = db.Column(db.String(500), nullable=True)
-
-    created_at = db.Column(db.DateTime(timezone=True), default=utcnow, nullable=False)
-</file>
-
-<file path="app/models/resource_spot.py">
+<file path="app/map/model.py">
 from datetime import timedelta
 
-from app.database import db
-from app.models.enums import ResourceSpotStatus
-from app.utils.mixins import utcnow, uuid_pk_column
+from app.shared.database import db
+from app.shared.models.enums import ResourceSpotStatus
+from app.shared.utils.mixins import utcnow, uuid_pk_column
 
 
 class ResourceSpot(db.Model):
@@ -598,191 +505,11 @@ class ResourceSpot(db.Model):
         return utcnow() + timedelta(days=days)
 </file>
 
-<file path="app/models/trade.py">
-from app.database import db
-from app.models.enums import TradeStatus, TradingForType
-from app.utils.mixins import utcnow, uuid_pk_column
-
-
-class Trade(db.Model):
-    __tablename__ = "trades"
-
-    id = uuid_pk_column()
-    owner_id = db.Column(db.String(36), db.ForeignKey("users.id"), nullable=False, index=True)
-
-    item_name = db.Column(db.String(120), nullable=False)
-    category = db.Column(db.String(50), nullable=False, index=True)
-    material = db.Column(db.String(120), nullable=False)
-    description = db.Column(db.Text, nullable=True)
-    weight_kg = db.Column(db.Numeric(8, 2), nullable=True)
-    quantity = db.Column(db.Integer, nullable=False, default=1)
-
-    location_text = db.Column(db.String(255), nullable=False, index=True)
-    pickup_location_text = db.Column(db.String(255), nullable=True)
-
-    trading_for_type = db.Column(db.Enum(TradingForType), nullable=False, default=TradingForType.NEGOTIATING)
-    trading_for_value = db.Column(db.String(255), nullable=True)
-
-    image_path = db.Column(db.String(255), nullable=True)
-
-    status = db.Column(db.Enum(TradeStatus), nullable=False, default=TradeStatus.OPEN, index=True)
-
-    created_at = db.Column(db.DateTime(timezone=True), default=utcnow, nullable=False)
-    updated_at = db.Column(db.DateTime(timezone=True), default=utcnow, onupdate=utcnow, nullable=False)
-
-    owner = db.relationship("User", back_populates="trades")
-    offers = db.relationship("Offer", back_populates="trade", lazy="dynamic", cascade="all, delete-orphan")
-
-    @property
-    def has_offers(self):
-        return self.offers.count() > 0
-
-    @property
-    def offer_accepted(self):
-        from app.models.enums import OfferStatus
-
-        return self.offers.filter_by(status=OfferStatus.ACCEPTED).first() is not None
-</file>
-
-<file path="app/models/user.py">
-from app.database import db
-from app.models.enums import UserRole
-from app.utils.mixins import utcnow, uuid_pk_column
-
-
-class User(db.Model):
-    __tablename__ = "users"
-
-    id = uuid_pk_column()
-    username = db.Column(db.String(50), unique=True, nullable=False, index=True)
-    first_name = db.Column(db.String(50), nullable=False)
-    last_name = db.Column(db.String(50), nullable=False)
-    email = db.Column(db.String(255), unique=True, nullable=False, index=True)
-    password_hash = db.Column(db.String(255), nullable=False)
-    profile_image_path = db.Column(db.String(255), nullable=True)
-    role = db.Column(db.Enum(UserRole), default=UserRole.USER, nullable=False)
-    created_at = db.Column(db.DateTime(timezone=True), default=utcnow, nullable=False)
-    profile_updated_at = db.Column(db.DateTime(timezone=True), nullable=True)
-
-    trades = db.relationship("Trade", back_populates="owner", lazy="dynamic")
-    offers = db.relationship("Offer", back_populates="offerer", lazy="dynamic")
-    resource_spots = db.relationship("ResourceSpot", back_populates="reporter", lazy="dynamic")
-    notifications = db.relationship("Notification", back_populates="recipient", lazy="dynamic")
-</file>
-
-<file path="app/repositories/__init__.py">
-
-</file>
-
-<file path="app/repositories/notification_repository.py">
-from app.database import db
-from app.models.notification import Notification
-
-
-def create_notification(notification):
-    db.session.add(notification)
-    db.session.commit()
-    return notification
-
-
-def list_for_user(user_id):
-    return Notification.query.filter_by(recipient_id=user_id).order_by(Notification.created_at.desc()).all()
-
-
-def count_unread(user_id):
-    return Notification.query.filter_by(recipient_id=user_id, is_read=False).count()
-
-
-def get_notification_by_id(notification_id):
-    return db.session.get(Notification, notification_id)
-
-
-def save_notification(notification):
-    db.session.commit()
-    return notification
-</file>
-
-<file path="app/repositories/offer_repository.py">
-from sqlalchemy.exc import IntegrityError
-
-from app.database import db
-from app.models.offer import Offer
-from app.models.trade import Trade
-from app.utils.errors import ConflictError
-
-
-def get_offer_by_id(offer_id):
-    return db.session.get(Offer, offer_id)
-
-
-def list_by_trade(trade_id):
-    return Offer.query.filter_by(trade_id=trade_id).order_by(Offer.created_at.desc()).all()
-
-
-def get_accepted_offer(trade_id):
-    from app.models.enums import OfferStatus
-
-    return Offer.query.filter_by(trade_id=trade_id, status=OfferStatus.ACCEPTED).first()
-
-
-def list_sent(offerer_id):
-    return Offer.query.filter_by(offerer_id=offerer_id).order_by(Offer.created_at.desc()).all()
-
-
-def list_received(owner_id):
-    return (
-        Offer.query.join(Trade, Offer.trade_id == Trade.id)
-        .filter(Trade.owner_id == owner_id)
-        .order_by(Offer.created_at.desc())
-        .all()
-    )
-
-
-def add_offer(offer):
-    db.session.add(offer)
-    return offer
-
-
-def save(*_objects):
-    try:
-        db.session.commit()
-    except IntegrityError:
-        db.session.rollback()
-        raise ConflictError("This trade already has an active offer.")
-</file>
-
-<file path="app/repositories/rating_repository.py">
-from sqlalchemy.exc import IntegrityError
-
-from app.database import db
-from app.models.rating import Rating
-from app.utils.errors import ConflictError
-
-
-def list_for_user(user_id):
-    return Rating.query.filter_by(rated_id=user_id).order_by(Rating.created_at.desc()).all()
-
-
-def average_for_user(user_id):
-    result = db.session.query(db.func.avg(Rating.score)).filter(Rating.rated_id == user_id).scalar()
-    return float(result) if result is not None else None
-
-
-def create_rating(rating):
-    db.session.add(rating)
-    try:
-        db.session.commit()
-    except IntegrityError:
-        db.session.rollback()
-        raise ConflictError("You have already rated this trade.")
-    return rating
-</file>
-
-<file path="app/repositories/resource_spot_repository.py">
-from app.database import db
-from app.models.enums import ResourceSpotStatus
-from app.models.resource_spot import ResourceSpot
-from app.utils.mixins import utcnow
+<file path="app/map/repository.py">
+from app.shared.database import db
+from app.shared.models.enums import ResourceSpotStatus
+from app.map.model import ResourceSpot
+from app.shared.utils.mixins import utcnow
 
 
 def get_spot_by_id(spot_id):
@@ -811,218 +538,11 @@ def save_spot(spot):
     return spot
 </file>
 
-<file path="app/repositories/trade_repository.py">
-from app.database import db
-from app.models.trade import Trade
-
-
-def get_trade_by_id(trade_id):
-    return db.session.get(Trade, trade_id)
-
-
-def list_browse(*, exclude_owner_id=None, category=None, location=None):
-    query = Trade.query
-    if exclude_owner_id is not None:
-        query = query.filter(Trade.owner_id != exclude_owner_id)
-    if category:
-        query = query.filter(db.func.lower(Trade.category) == category.lower())
-    if location:
-        query = query.filter(Trade.location_text.ilike(f"%{location}%"))
-    return query.order_by(Trade.created_at.desc())
-
-
-def list_mine(owner_id):
-    return Trade.query.filter_by(owner_id=owner_id).order_by(Trade.created_at.desc())
-
-
-def create_trade(trade):
-    db.session.add(trade)
-    db.session.commit()
-    return trade
-
-
-def save_trade(trade):
-    db.session.commit()
-    return trade
-</file>
-
-<file path="app/repositories/user_repository.py">
-from app.database import db
-from app.models.user import User
-
-
-def get_user_by_id(user_id):
-    return db.session.get(User, user_id)
-
-
-def get_user_by_email(email):
-    return User.query.filter(db.func.lower(User.email) == email.lower()).first()
-
-
-def get_user_by_username(username):
-    return User.query.filter(db.func.lower(User.username) == username.lower()).first()
-
-
-def create_user(user):
-    db.session.add(user)
-    db.session.commit()
-    return user
-
-
-def save_user(user):
-    db.session.commit()
-    return user
-</file>
-
-<file path="app/routes/__init__.py">
-
-</file>
-
-<file path="app/routes/ai_routes.py">
+<file path="app/map/routes.py">
 from flask import Blueprint
 
-from app.controller import ai_controller
-from app.utils.auth import require_auth
-
-ai_bp = Blueprint("ai", __name__, url_prefix="/ai")
-
-
-@ai_bp.post("/assess-trade-photo")
-@require_auth
-def assess_trade():
-    return ai_controller.assess_trade()
-
-
-@ai_bp.post("/assess-resource-spot-photo")
-@require_auth
-def assess_resource_spot():
-    return ai_controller.assess_resource_spot()
-</file>
-
-<file path="app/routes/auth_routes.py">
-from flask import Blueprint
-
-from app.controller import auth_controller
-from app.utils.rate_limit import limiter
-
-auth_bp = Blueprint("auth", __name__, url_prefix="/auth")
-
-
-@auth_bp.post("/register")
-@limiter.limit("10 per hour")
-def register():
-    return auth_controller.register()
-
-
-@auth_bp.post("/login")
-@limiter.limit("20 per hour")
-def login():
-    return auth_controller.login()
-
-
-@auth_bp.post("/logout")
-def logout():
-    return auth_controller.logout()
-</file>
-
-<file path="app/routes/notification_routes.py">
-from flask import Blueprint
-
-from app.controller import notification_controller
-from app.utils.auth import require_auth
-
-notification_bp = Blueprint("notification", __name__, url_prefix="/notifications")
-
-
-@notification_bp.get("")
-@require_auth
-def list_notifications():
-    return notification_controller.list_notifications()
-
-
-@notification_bp.get("/unread-count")
-@require_auth
-def unread_notification_count():
-    return notification_controller.unread_notification_count()
-
-
-@notification_bp.patch("/<notification_id>/read")
-@require_auth
-def mark_notification_read(notification_id):
-    return notification_controller.mark_notification_read(notification_id)
-</file>
-
-<file path="app/routes/offer_routes.py">
-from flask import Blueprint
-
-from app.controller import offer_controller
-from app.utils.auth import require_auth
-
-offer_bp = Blueprint("offer", __name__)
-
-
-@offer_bp.post("/trades/<trade_id>/offers")
-@require_auth
-def send_offer(trade_id):
-    return offer_controller.send_offer(trade_id)
-
-
-@offer_bp.get("/trades/<trade_id>/offers")
-@require_auth
-def offers_for_trade(trade_id):
-    return offer_controller.offers_for_trade(trade_id)
-
-
-@offer_bp.post("/offers/<offer_id>/accept")
-@require_auth
-def accept_offer(offer_id):
-    return offer_controller.accept_offer(offer_id)
-
-
-@offer_bp.post("/offers/<offer_id>/decline")
-@require_auth
-def decline_offer(offer_id):
-    return offer_controller.decline_offer(offer_id)
-
-
-@offer_bp.get("/offers/mine")
-@require_auth
-def my_sent_offers():
-    return offer_controller.my_sent_offers()
-
-
-@offer_bp.get("/offers/received")
-@require_auth
-def my_received_offers():
-    return offer_controller.my_received_offers()
-</file>
-
-<file path="app/routes/rating_routes.py">
-from flask import Blueprint
-
-from app.controller import rating_controller
-from app.utils.auth import require_auth
-
-rating_bp = Blueprint("rating", __name__)
-
-
-@rating_bp.post("/trades/<trade_id>/ratings")
-@require_auth
-def create_rating(trade_id):
-    return rating_controller.create_rating(trade_id)
-
-
-@rating_bp.get("/users/<user_id>/ratings")
-@require_auth
-def ratings_for_user(user_id):
-    return rating_controller.ratings_for_user(user_id)
-</file>
-
-<file path="app/routes/resource_spot_routes.py">
-from flask import Blueprint
-
-from app.controller import resource_spot_controller
-from app.utils.auth import require_auth
+from app.map import controller as resource_spot_controller
+from app.auth.utils import require_auth
 
 resource_spot_bp = Blueprint("resource_spot", __name__, url_prefix="/resource-spots")
 
@@ -1057,122 +577,8 @@ def mark_collected(spot_id):
     return resource_spot_controller.mark_collected(spot_id)
 </file>
 
-<file path="app/routes/trade_routes.py">
-from flask import Blueprint
-
-from app.controller import trade_controller
-from app.utils.auth import require_auth
-
-trade_bp = Blueprint("trade", __name__, url_prefix="/trades")
-
-
-@trade_bp.get("")
-@require_auth
-def browse_trades():
-    return trade_controller.browse_trades()
-
-
-@trade_bp.get("/mine")
-@require_auth
-def my_trades():
-    return trade_controller.my_trades()
-
-
-@trade_bp.get("/<trade_id>")
-@require_auth
-def get_trade(trade_id):
-    return trade_controller.get_trade(trade_id)
-
-
-@trade_bp.post("")
-@require_auth
-def create_trade():
-    return trade_controller.create_trade()
-
-
-@trade_bp.patch("/<trade_id>")
-@require_auth
-def update_trade(trade_id):
-    return trade_controller.update_trade(trade_id)
-</file>
-
-<file path="app/routes/user_routes.py">
-from flask import Blueprint
-
-from app.controller import user_controller
-from app.utils.auth import require_auth
-
-user_bp = Blueprint("user", __name__, url_prefix="/users")
-
-
-@user_bp.get("/me")
-@require_auth
-def get_me():
-    return user_controller.get_me()
-
-
-@user_bp.patch("/me")
-@require_auth
-def update_me():
-    return user_controller.update_me()
-</file>
-
-<file path="app/schemas/__init__.py">
-
-</file>
-
-<file path="app/schemas/notification_schema.py">
-def serialize_notification(notification):
-    return {
-        "id": notification.id,
-        "type": notification.type.value,
-        "title": notification.title,
-        "body": notification.body,
-        "relatedTradeId": notification.related_trade_id,
-        "relatedOfferId": notification.related_offer_id,
-        "isRead": notification.is_read,
-        "createdAt": notification.created_at.isoformat(),
-    }
-</file>
-
-<file path="app/schemas/offer_schema.py">
-from app.utils.file_storage import build_media_url
-
-
-def serialize_offer(offer):
-    return {
-        "id": offer.id,
-        "tradeId": offer.trade_id,
-        "tradeName": offer.trade.item_name,
-        "offererId": offer.offerer_id,
-        "offererName": offer.offerer.first_name,
-        "itemName": offer.item_name,
-        "category": offer.category,
-        "material": offer.material,
-        "weightKg": float(offer.weight_kg) if offer.weight_kg is not None else None,
-        "description": offer.description,
-        "image": build_media_url(offer.image_path),
-        "status": offer.status.value,
-        "createdAt": offer.created_at.isoformat(),
-        "decidedAt": offer.decided_at.isoformat() if offer.decided_at else None,
-    }
-</file>
-
-<file path="app/schemas/rating_schema.py">
-def serialize_rating(rating):
-    return {
-        "id": rating.id,
-        "tradeId": rating.trade_id,
-        "raterId": rating.rater_id,
-        "ratedId": rating.rated_id,
-        "score": rating.score,
-        "comment": rating.comment,
-        "createdAt": rating.created_at.isoformat(),
-    }
-</file>
-
-<file path="app/schemas/resource_spot_schema.py">
-from app.utils.file_storage import build_media_url
+<file path="app/map/schema.py">
+from app.shared.utils.file_storage import build_media_url
 
 
 def serialize_resource_spot(spot):
@@ -1194,37 +600,196 @@ def serialize_resource_spot(spot):
     }
 </file>
 
-<file path="app/schemas/trade_schema.py">
-from app.utils.file_storage import build_media_url
+<file path="app/map/service.py">
+from flask import current_app
+
+from app.shared.models.enums import ResourceSpotStatus
+from app.map.model import ResourceSpot
+from app.map.repository import (
+    create_spot,
+    get_spot_by_id,
+    list_active as repo_list_active,
+    save_spot,
+)
+from app.shared.utils.errors import ConflictError, NotFoundError, ValidationError
+from app.shared.utils.file_storage import save_image
+from app.shared.utils.mixins import utcnow
+
+REQUIRED_FIELDS = ("name", "material", "locationText")
 
 
-def serialize_trade(trade):
-    return {
-        "id": trade.id,
-        "name": trade.item_name,
-        "category": trade.category,
-        "material": trade.material,
-        "image": build_media_url(trade.image_path),
-        "location": trade.location_text,
-        "pickupLocation": trade.pickup_location_text,
-        "posterName": trade.owner.first_name,
-        "posterId": trade.owner_id,
-        "weightKg": float(trade.weight_kg) if trade.weight_kg is not None else None,
-        "quantity": trade.quantity,
-        "tradingFor": {
-            "type": trade.trading_for_type.value,
-            "value": trade.trading_for_value,
-        },
-        "description": trade.description,
-        "status": trade.status.value,
-        "hasOffers": trade.has_offers,
-        "offerAccepted": trade.offer_accepted,
-        "createdAt": trade.created_at.isoformat(),
-    }
+def report_spot(reporter_id, *, fields, image_file):
+    missing = [f for f in REQUIRED_FIELDS if not fields.get(f)]
+    if missing:
+        raise ValidationError(f"Missing required field(s): {', '.join(missing)}.")
+
+    spot = ResourceSpot(
+        reporter_id=reporter_id,
+        name=fields["name"],
+        material=fields["material"],
+        weight_kg=fields.get("weightKg"),
+        quantity=fields.get("quantity"),
+        description=fields.get("description"),
+        location_text=fields["locationText"],
+        permission_note=fields.get("permissionNote"),
+        status=ResourceSpotStatus.ACTIVE,
+        expires_at=ResourceSpot.default_expiry(current_app.config["RESOURCE_SPOT_EXPIRY_DAYS"]),
+    )
+    if image_file is not None:
+        spot.image_path = save_image(image_file, "resource_spots")
+
+    return create_spot(spot)
+
+
+def get_spot(spot_id):
+    spot = get_spot_by_id(spot_id)
+    if spot is None:
+        raise NotFoundError("Resource spot not found.")
+    return spot
+
+
+def list_active():
+    return repo_list_active()
+
+
+def add_photo_update(spot_id, *, image_file):
+    spot = get_spot(spot_id)
+    if spot.status != ResourceSpotStatus.ACTIVE:
+        raise ConflictError("This resource spot is no longer active.")
+    if image_file is None:
+        raise ValidationError("An updated photo is required.")
+
+    spot.image_path = save_image(image_file, "resource_spots")
+    return save_spot(spot)
+
+
+def mark_collected(spot_id):
+    spot = get_spot(spot_id)
+    if spot.status == ResourceSpotStatus.COLLECTED:
+        raise ConflictError("This resource spot is already marked collected.")
+
+    spot.status = ResourceSpotStatus.COLLECTED
+    spot.collected_at = utcnow()
+    return save_spot(spot)
 </file>
 
-<file path="app/schemas/user_schema.py">
-from app.utils.file_storage import build_media_url
+<file path="app/profile/__init__.py">
+
+</file>
+
+<file path="app/profile/controller.py">
+from flask import g, request
+
+from app.profile.schema import serialize_user
+from app.profile.service import update_profile
+
+
+def get_me():
+    return serialize_user(g.current_user), 200
+
+
+def update_me():
+    form = request.form
+    updates = {}
+    for form_key, field in (
+        ("firstName", "first_name"),
+        ("lastName", "last_name"),
+        ("username", "username"),
+        ("email", "email"),
+        ("password", "password"),
+    ):
+        if form_key in form and form[form_key]:
+            updates[field] = form[form_key]
+
+    current_password = form.get("currentPassword")
+    image_file = request.files.get("image")
+
+    user = update_profile(
+        g.current_user.id,
+        updates=updates,
+        current_password=current_password,
+        image_file=image_file,
+    )
+    return serialize_user(user), 200
+</file>
+
+<file path="app/profile/model.py">
+from app.shared.database import db
+from app.shared.models.enums import UserRole
+from app.shared.utils.mixins import utcnow, uuid_pk_column
+
+class User(db.Model):
+    __tablename__ = "users"
+
+    id = uuid_pk_column()
+    username = db.Column(db.String(50), unique=True, nullable=False, index=True)
+    first_name = db.Column(db.String(50), nullable=False)
+    last_name = db.Column(db.String(50), nullable=False)
+    email = db.Column(db.String(255), unique=True, nullable=False, index=True)
+    password_hash = db.Column(db.String(255), nullable=True)  # <-- Changed to True for OAuth users
+    google_id = db.Column(db.String(255), unique=True, nullable=True, index=True)  # <-- Added
+    profile_image_path = db.Column(db.String(255), nullable=True)
+    role = db.Column(db.Enum(UserRole), default=UserRole.USER, nullable=False)
+    created_at = db.Column(db.DateTime(timezone=True), default=utcnow, nullable=False)
+    profile_updated_at = db.Column(db.DateTime(timezone=True), nullable=True)
+    
+    trades = db.relationship("Trade", back_populates="owner", lazy="dynamic")
+    offers = db.relationship("Offer", back_populates="offerer", lazy="dynamic")
+    resource_spots = db.relationship("ResourceSpot", back_populates="reporter", lazy="dynamic")
+    notifications = db.relationship("Notification", back_populates="recipient", lazy="dynamic")
+</file>
+
+<file path="app/profile/repository.py">
+from app.shared.database import db
+from app.profile.model import User
+
+
+def get_user_by_id(user_id):
+    return db.session.get(User, user_id)
+
+
+def get_user_by_email(email):
+    return User.query.filter(db.func.lower(User.email) == email.lower()).first()
+
+
+def get_user_by_username(username):
+    return User.query.filter(db.func.lower(User.username) == username.lower()).first()
+
+
+def create_user(user):
+    db.session.add(user)
+    db.session.commit()
+    return user
+
+
+def save_user(user):
+    db.session.commit()
+    return user
+</file>
+
+<file path="app/profile/routes.py">
+from flask import Blueprint
+
+from app.profile import controller as user_controller
+from app.auth.utils import require_auth
+
+user_bp = Blueprint("user", __name__, url_prefix="/users")
+
+
+@user_bp.get("/me")
+@require_auth
+def get_me():
+    return user_controller.get_me()
+
+
+@user_bp.patch("/me")
+@require_auth
+def update_me():
+    return user_controller.update_me()
+</file>
+
+<file path="app/profile/schema.py">
+from app.shared.utils.file_storage import build_media_url
 
 
 def serialize_user(user):
@@ -1240,11 +805,145 @@ def serialize_user(user):
     }
 </file>
 
-<file path="app/services/__init__.py">
+<file path="app/profile/service.py">
+from datetime import timedelta
+
+from flask import current_app
+
+from app.profile.model import User
+from app.profile.repository import (
+    create_user,
+    get_user_by_email,
+    get_user_by_id,
+    get_user_by_username,
+    save_user,
+)
+from app.auth.utils import hash_password, verify_password
+from app.shared.utils.errors import ConflictError, ForbiddenError, NotFoundError, ValidationError
+from app.shared.utils.file_storage import save_image
+from app.shared.utils.mixins import ensure_aware, utcnow
+
+
+def register_user(*, username, first_name, last_name, email, password):
+    if get_user_by_email(email) is not None:
+        raise ConflictError("An account with this email already exists.")
+    if get_user_by_username(username) is not None:
+        raise ConflictError("An account with this username already exists.")
+
+    user = User(
+        username=username,
+        first_name=first_name,
+        last_name=last_name,
+        email=email,
+        password_hash=hash_password(password),
+    )
+    return create_user(user)
+
+
+def authenticate_user(*, email, password):
+    user = get_user_by_email(email)
+    if user is None or not verify_password(password, user.password_hash):
+        raise ValidationError("Invalid email or password.", status_code=401)
+    return user
+
+
+def get_profile(user_id):
+    user = get_user_by_id(user_id)
+    if user is None:
+        raise NotFoundError("User not found.")
+    return user
+
+
+def update_profile(user_id, *, updates, current_password, image_file):
+    user = get_user_by_id(user_id)
+    if user is None:
+        raise NotFoundError("User not found.")
+
+    wants_sensitive_change = any(k in updates for k in ("password", "email", "username")) or image_file is not None
+    if wants_sensitive_change and user.profile_updated_at is not None:
+        cooldown = timedelta(days=current_app.config["PROFILE_EDIT_COOLDOWN_DAYS"])
+        next_allowed_at = ensure_aware(user.profile_updated_at) + cooldown
+        if utcnow() < next_allowed_at:
+            days_left = (next_allowed_at - utcnow()).days + 1
+            raise ConflictError(f"You can update your profile again in {days_left} day(s).")
+
+    if "password" in updates or "email" in updates or "username" in updates:
+        if not current_password or not verify_password(current_password, user.password_hash):
+            raise ForbiddenError("Current password is incorrect.")
+
+    if "first_name" in updates:
+        user.first_name = updates["first_name"]
+    if "last_name" in updates:
+        user.last_name = updates["last_name"]
+    if "username" in updates:
+        existing = get_user_by_username(updates["username"])
+        if existing is not None and existing.id != user.id:
+            raise ConflictError("An account with this username already exists.")
+        user.username = updates["username"]
+    if "email" in updates:
+        existing = get_user_by_email(updates["email"])
+        if existing is not None and existing.id != user.id:
+            raise ConflictError("An account with this email already exists.")
+        user.email = updates["email"]
+    if "password" in updates:
+        user.password_hash = hash_password(updates["password"])
+
+    if image_file is not None:
+        user.profile_image_path = save_image(image_file, "profiles")
+
+    if wants_sensitive_change:
+        user.profile_updated_at = utcnow()
+
+    return save_user(user)
+</file>
+
+<file path="app/scan/__init__.py">
 
 </file>
 
-<file path="app/services/ai_service.py">
+<file path="app/scan/controller.py">
+from flask import request
+
+from app.scan.service import assess_resource_spot_photo, assess_trade_photo
+from app.shared.utils.errors import ValidationError
+
+
+def assess_trade():
+    image_file = request.files.get("image")
+    if image_file is None:
+        raise ValidationError("An image file is required.")
+    return assess_trade_photo(image_file), 200
+
+
+def assess_resource_spot():
+    image_file = request.files.get("image")
+    if image_file is None:
+        raise ValidationError("An image file is required.")
+    return assess_resource_spot_photo(image_file), 200
+</file>
+
+<file path="app/scan/routes.py">
+from flask import Blueprint
+
+from app.scan import controller as ai_controller
+from app.auth.utils import require_auth
+
+ai_bp = Blueprint("ai", __name__, url_prefix="/ai")
+
+
+@ai_bp.post("/assess-trade-photo")
+@require_auth
+def assess_trade():
+    return ai_controller.assess_trade()
+
+
+@ai_bp.post("/assess-resource-spot-photo")
+@require_auth
+def assess_resource_spot():
+    return ai_controller.assess_resource_spot()
+</file>
+
+<file path="app/scan/service.py">
 import json
 
 from flask import current_app
@@ -1318,16 +1017,261 @@ def assess_resource_spot_photo(image_file):
         return dict(EMPTY_SPOT_RESULT)
 </file>
 
-<file path="app/services/notification_service.py">
-from app.models.notification import Notification
-from app.repositories.notification_repository import (
+<file path="app/services/auth_service.py">
+# backend/app/services/auth_service.py
+from flask import current_app
+from google.oauth2 import id_token
+from google.auth.transport import requests
+
+from app.database import db
+from app.models.user import User
+from app.repositories.user_repository import get_user_by_email # or user_service
+from app.utils.errors import ValidationError
+
+def verify_google_token(token: str) -> dict:
+    """Verifies the ID token sent from frontend with Google's servers."""
+    try:
+        client_id = current_app.config.get("GOOGLE_CLIENT_ID")
+        # If client_id is empty in dev, pass None or set up your Google Console Client ID
+        id_info = id_token.verify_oauth2_token(
+            token, 
+            requests.Request(), 
+            audience=client_id if client_id else None
+        )
+        return id_info
+    except Exception as e:
+        raise ValidationError(f"Invalid Google token: {str(e)}")
+
+def google_login_or_register(id_token_str: str) -> User:
+    """Authenticates a user via Google ID Token; creates a profile if new."""
+    payload = verify_google_token(id_token_str)
+    
+    email = payload.get("email")
+    google_id = payload.get("sub")
+    first_name = payload.get("given_name", "Google")
+    last_name = payload.get("family_name", "User")
+    picture = payload.get("picture")
+
+    if not email:
+        raise ValidationError("Google account must have an email address.")
+
+    # 1. Check if user exists by google_id or email
+    user = User.query.filter((User.google_id == google_id) | (User.email == email)).first()
+
+    if user:
+        # Link google_id if not already linked
+        if not user.google_id:
+            user.google_id = google_id
+            db.session.commit()
+        return user
+
+    # 2. Create new user if first-time login
+    # Generate a unique base username from email
+    base_username = email.split("@")[0]
+    username = base_username
+    counter = 1
+    while User.query.filter_by(username=username).first():
+        username = f"{base_username}{counter}"
+        counter += 1
+
+    new_user = User(
+        username=username,
+        first_name=first_name,
+        last_name=last_name,
+        email=email,
+        google_id=google_id,
+        profile_image_path=picture
+    )
+    db.session.add(new_user)
+    db.session.commit()
+
+    return new_user
+</file>
+
+<file path="app/shared/database/__init__.py">
+from flask_sqlalchemy import SQLAlchemy
+from flask_migrate import Migrate
+
+db = SQLAlchemy()
+migrate = Migrate()
+</file>
+
+<file path="app/shared/models/__init__.py">
+from app.profile.model import User  # noqa: F401
+from app.trades.model import Trade  # noqa: F401
+from app.trades.offer.model import Offer  # noqa: F401
+from app.map.model import ResourceSpot  # noqa: F401
+from app.shared.notification.model import Notification  # noqa: F401
+from app.shared.rating.model import Rating  # noqa: F401
+</file>
+
+<file path="app/shared/models/enums.py">
+import enum
+
+
+class UserRole(str, enum.Enum):
+    USER = "user"
+    ADMIN = "admin"
+
+
+class TradeStatus(str, enum.Enum):
+    OPEN = "open"
+    RESERVED = "reserved"
+    COMPLETED = "completed"
+
+
+class OfferStatus(str, enum.Enum):
+    PENDING = "pending"
+    ACCEPTED = "accepted"
+    DECLINED = "declined"
+
+
+class ResourceSpotStatus(str, enum.Enum):
+    ACTIVE = "active"
+    COLLECTED = "collected"
+
+
+class TradingForType(str, enum.Enum):
+    SPECIFIC = "specific"
+    NOTHING = "nothing"
+    NEGOTIATING = "negotiating"
+
+
+class NotificationType(str, enum.Enum):
+    OFFER_RECEIVED = "offer_received"
+    OFFER_ACCEPTED = "offer_accepted"
+    OFFER_DECLINED = "offer_declined"
+</file>
+
+<file path="app/shared/notification/__init__.py">
+
+</file>
+
+<file path="app/shared/notification/controller.py">
+from flask import g
+
+from app.shared.notification.schema import serialize_notification
+from app.shared.notification.service import list_for_user, mark_read, unread_count
+
+
+def list_notifications():
+    notifications = list_for_user(g.current_user.id)
+    return [serialize_notification(n) for n in notifications], 200
+
+
+def unread_notification_count():
+    return {"count": unread_count(g.current_user.id)}, 200
+
+
+def mark_notification_read(notification_id):
+    notification = mark_read(notification_id, g.current_user.id)
+    return serialize_notification(notification), 200
+</file>
+
+<file path="app/shared/notification/model.py">
+from app.shared.database import db
+from app.shared.models.enums import NotificationType
+from app.shared.utils.mixins import utcnow, uuid_pk_column
+
+
+class Notification(db.Model):
+    __tablename__ = "notifications"
+
+    id = uuid_pk_column()
+    recipient_id = db.Column(db.String(36), db.ForeignKey("users.id"), nullable=False, index=True)
+
+    type = db.Column(db.Enum(NotificationType), nullable=False)
+    title = db.Column(db.String(120), nullable=False)
+    body = db.Column(db.String(255), nullable=False)
+
+    related_trade_id = db.Column(db.String(36), db.ForeignKey("trades.id"), nullable=True)
+    related_offer_id = db.Column(db.String(36), db.ForeignKey("offers.id"), nullable=True)
+
+    is_read = db.Column(db.Boolean, nullable=False, default=False, index=True)
+    created_at = db.Column(db.DateTime(timezone=True), default=utcnow, nullable=False)
+
+    recipient = db.relationship("User", back_populates="notifications")
+</file>
+
+<file path="app/shared/notification/repository.py">
+from app.shared.database import db
+from app.shared.notification.model import Notification
+
+
+def create_notification(notification):
+    db.session.add(notification)
+    db.session.commit()
+    return notification
+
+
+def list_for_user(user_id):
+    return Notification.query.filter_by(recipient_id=user_id).order_by(Notification.created_at.desc()).all()
+
+
+def count_unread(user_id):
+    return Notification.query.filter_by(recipient_id=user_id, is_read=False).count()
+
+
+def get_notification_by_id(notification_id):
+    return db.session.get(Notification, notification_id)
+
+
+def save_notification(notification):
+    db.session.commit()
+    return notification
+</file>
+
+<file path="app/shared/notification/routes.py">
+from flask import Blueprint
+
+from app.shared.notification import controller as notification_controller
+from app.auth.utils import require_auth
+
+notification_bp = Blueprint("notification", __name__, url_prefix="/notifications")
+
+
+@notification_bp.get("")
+@require_auth
+def list_notifications():
+    return notification_controller.list_notifications()
+
+
+@notification_bp.get("/unread-count")
+@require_auth
+def unread_notification_count():
+    return notification_controller.unread_notification_count()
+
+
+@notification_bp.patch("/<notification_id>/read")
+@require_auth
+def mark_notification_read(notification_id):
+    return notification_controller.mark_notification_read(notification_id)
+</file>
+
+<file path="app/shared/notification/schema.py">
+def serialize_notification(notification):
+    return {
+        "id": notification.id,
+        "type": notification.type.value,
+        "title": notification.title,
+        "body": notification.body,
+        "relatedTradeId": notification.related_trade_id,
+        "relatedOfferId": notification.related_offer_id,
+        "isRead": notification.is_read,
+        "createdAt": notification.created_at.isoformat(),
+    }
+</file>
+
+<file path="app/shared/notification/service.py">
+from app.shared.notification.model import Notification
+from app.shared.notification.repository import (
     count_unread,
     create_notification as create_notification_row,
     get_notification_by_id,
     list_for_user as repo_list_for_user,
     save_notification,
 )
-from app.utils.errors import ForbiddenError, NotFoundError
+from app.shared.utils.errors import ForbiddenError, NotFoundError
 
 
 def notify(*, recipient_id, type, title, body, trade_id=None, offer_id=None):
@@ -1360,10 +1304,534 @@ def mark_read(notification_id, user_id):
     return save_notification(notification)
 </file>
 
-<file path="app/services/offer_service.py">
-from app.models.enums import NotificationType, OfferStatus, TradeStatus
-from app.models.offer import Offer
-from app.repositories.offer_repository import (
+<file path="app/shared/rating/__init__.py">
+
+</file>
+
+<file path="app/shared/rating/controller.py">
+from flask import g, request
+
+from app.shared.rating.schema import serialize_rating
+from app.shared.rating.service import list_for_user, rate_trade
+from app.shared.utils.errors import ValidationError
+
+
+def create_rating(trade_id):
+    body = request.get_json(silent=True) or {}
+    if "score" not in body:
+        raise ValidationError("score is required.")
+
+    rating = rate_trade(trade_id, g.current_user.id, score=body["score"], comment=body.get("comment"))
+    return serialize_rating(rating), 201
+
+
+def ratings_for_user(user_id):
+    result = list_for_user(user_id)
+    return {
+        "ratings": [serialize_rating(r) for r in result["ratings"]],
+        "average": result["average"],
+    }, 200
+</file>
+
+<file path="app/shared/rating/model.py">
+from app.shared.database import db
+from app.shared.utils.mixins import utcnow, uuid_pk_column
+
+
+class Rating(db.Model):
+    __tablename__ = "ratings"
+    __table_args__ = (
+        db.UniqueConstraint("trade_id", "rater_id", name="uq_rating_trade_rater"),
+        db.CheckConstraint("score >= 1 AND score <= 5", name="ck_rating_score_range"),
+    )
+
+    id = uuid_pk_column()
+    trade_id = db.Column(db.String(36), db.ForeignKey("trades.id"), nullable=False, index=True)
+    rater_id = db.Column(db.String(36), db.ForeignKey("users.id"), nullable=False, index=True)
+    rated_id = db.Column(db.String(36), db.ForeignKey("users.id"), nullable=False, index=True)
+
+    score = db.Column(db.Integer, nullable=False)
+    comment = db.Column(db.String(500), nullable=True)
+
+    created_at = db.Column(db.DateTime(timezone=True), default=utcnow, nullable=False)
+</file>
+
+<file path="app/shared/rating/repository.py">
+from sqlalchemy.exc import IntegrityError
+
+from app.shared.database import db
+from app.shared.rating.model import Rating
+from app.shared.utils.errors import ConflictError
+
+
+def list_for_user(user_id):
+    return Rating.query.filter_by(rated_id=user_id).order_by(Rating.created_at.desc()).all()
+
+
+def average_for_user(user_id):
+    result = db.session.query(db.func.avg(Rating.score)).filter(Rating.rated_id == user_id).scalar()
+    return float(result) if result is not None else None
+
+
+def create_rating(rating):
+    db.session.add(rating)
+    try:
+        db.session.commit()
+    except IntegrityError:
+        db.session.rollback()
+        raise ConflictError("You have already rated this trade.")
+    return rating
+</file>
+
+<file path="app/shared/rating/routes.py">
+from flask import Blueprint
+
+from app.shared.rating import controller as rating_controller
+from app.auth.utils import require_auth
+
+rating_bp = Blueprint("rating", __name__)
+
+
+@rating_bp.post("/trades/<trade_id>/ratings")
+@require_auth
+def create_rating(trade_id):
+    return rating_controller.create_rating(trade_id)
+
+
+@rating_bp.get("/users/<user_id>/ratings")
+@require_auth
+def ratings_for_user(user_id):
+    return rating_controller.ratings_for_user(user_id)
+</file>
+
+<file path="app/shared/rating/schema.py">
+def serialize_rating(rating):
+    return {
+        "id": rating.id,
+        "tradeId": rating.trade_id,
+        "raterId": rating.rater_id,
+        "ratedId": rating.rated_id,
+        "score": rating.score,
+        "comment": rating.comment,
+        "createdAt": rating.created_at.isoformat(),
+    }
+</file>
+
+<file path="app/shared/rating/service.py">
+from app.shared.models.enums import TradeStatus
+from app.shared.rating.model import Rating
+from app.trades.offer.repository import get_accepted_offer
+from app.shared.rating.repository import average_for_user, create_rating, list_for_user as repo_list_for_user
+from app.trades.repository import get_trade_by_id
+from app.shared.utils.errors import ForbiddenError, NotFoundError, ValidationError
+
+
+def _other_party(trade, rater_id):
+    accepted_offer = get_accepted_offer(trade.id)
+    if accepted_offer is None:
+        raise ForbiddenError("This trade has no accepted offer to rate.")
+
+    if rater_id == trade.owner_id:
+        return accepted_offer.offerer_id
+    if rater_id == accepted_offer.offerer_id:
+        return trade.owner_id
+    raise ForbiddenError("Only the two parties of a trade may rate each other.")
+
+
+def rate_trade(trade_id, rater_id, *, score, comment=None):
+    trade = get_trade_by_id(trade_id)
+    if trade is None:
+        raise NotFoundError("Trade not found.")
+    if trade.status != TradeStatus.COMPLETED:
+        raise ForbiddenError("You can only rate completed trades.")
+    if not isinstance(score, int) or score < 1 or score > 5:
+        raise ValidationError("score must be an integer between 1 and 5.")
+
+    rated_id = _other_party(trade, rater_id)
+
+    rating = Rating(trade_id=trade.id, rater_id=rater_id, rated_id=rated_id, score=score, comment=comment)
+    return create_rating(rating)
+
+
+def list_for_user(user_id):
+    return {
+        "ratings": repo_list_for_user(user_id),
+        "average": average_for_user(user_id),
+    }
+</file>
+
+<file path="app/shared/utils/__init__.py">
+
+</file>
+
+<file path="app/shared/utils/errors.py">
+class ApiError(Exception):
+    status_code = 400
+
+    def __init__(self, message, status_code=None):
+        super().__init__(message)
+        self.message = message
+        if status_code is not None:
+            self.status_code = status_code
+
+
+class NotFoundError(ApiError):
+    status_code = 404
+
+
+class ConflictError(ApiError):
+    status_code = 409
+
+
+class ForbiddenError(ApiError):
+    status_code = 403
+
+
+class ValidationError(ApiError):
+    status_code = 422
+
+
+def register_error_handlers(app):
+    @app.errorhandler(ApiError)
+    def handle_api_error(err):
+        return {"error": err.message}, err.status_code
+
+    @app.errorhandler(404)
+    def handle_404(err):
+        return {"error": "Not found."}, 404
+
+    @app.errorhandler(500)
+    def handle_500(err):
+        app.logger.exception(err)
+        return {"error": "Internal server error."}, 500
+</file>
+
+<file path="app/shared/utils/file_storage.py">
+import io
+import os
+import uuid
+
+from flask import current_app
+from PIL import Image
+from werkzeug.utils import secure_filename
+
+ALLOWED_EXTENSIONS = {"jpg", "jpeg", "png", "webp"}
+
+
+def _extension(filename):
+    if "." not in filename:
+        return None
+    return filename.rsplit(".", 1)[1].lower()
+
+
+def save_image(file_storage, subfolder):
+    """Validates, strips EXIF, and saves an uploaded image under UPLOAD_ROOT/subfolder.
+
+    Returns the relative path to store on the model (e.g. "trades/<uuid>.jpg").
+    """
+    filename = secure_filename(file_storage.filename or "")
+    ext = _extension(filename)
+    if ext not in ALLOWED_EXTENSIONS:
+        from app.shared.utils.errors import ValidationError
+
+        raise ValidationError("Unsupported image type. Use JPEG, PNG, or WEBP.")
+
+    image = Image.open(file_storage.stream)
+    image = image.convert("RGB") if ext in ("jpg", "jpeg") else image.copy()
+
+    # Strip EXIF (including GPS tags) by re-saving pixel data only.
+    clean = Image.new(image.mode, image.size)
+    clean.putdata(list(image.getdata()))
+
+    upload_root = current_app.config["UPLOAD_ROOT"]
+    target_dir = os.path.join(upload_root, subfolder)
+    os.makedirs(target_dir, exist_ok=True)
+
+    new_filename = f"{uuid.uuid4()}.{ext}"
+    target_path = os.path.join(target_dir, new_filename)
+
+    buffer = io.BytesIO()
+    save_format = "JPEG" if ext in ("jpg", "jpeg") else ext.upper()
+    clean.save(buffer, format=save_format)
+    with open(target_path, "wb") as f:
+        f.write(buffer.getvalue())
+
+    return f"{subfolder}/{new_filename}"
+
+
+def build_media_url(relative_path):
+    if not relative_path:
+        return None
+    base = current_app.config["PUBLIC_BASE_URL"].rstrip("/")
+    return f"{base}/media/{relative_path}"
+</file>
+
+<file path="app/shared/utils/mixins.py">
+import uuid
+from datetime import datetime, timezone
+
+from app.shared.database import db
+
+
+def utcnow():
+    return datetime.now(timezone.utc)
+
+
+def ensure_aware(dt):
+    """SQLite drops tzinfo on round-trip even for DateTime(timezone=True) columns,
+    while Postgres preserves it. Normalize so comparisons work on either backend."""
+    if dt is not None and dt.tzinfo is None:
+        return dt.replace(tzinfo=timezone.utc)
+    return dt
+
+
+def uuid_pk_column():
+    return db.Column(db.String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+</file>
+
+<file path="app/shared/utils/pagination.py">
+from flask import request
+
+DEFAULT_PAGE_SIZE = 20
+MAX_PAGE_SIZE = 100
+
+
+def paginate_query(query):
+    page = request.args.get("page", 1, type=int)
+    page_size = request.args.get("page_size", DEFAULT_PAGE_SIZE, type=int)
+    page = max(page, 1)
+    page_size = min(max(page_size, 1), MAX_PAGE_SIZE)
+
+    total = query.count()
+    items = query.offset((page - 1) * page_size).limit(page_size).all()
+
+    return {
+        "items": items,
+        "page": page,
+        "page_size": page_size,
+        "total": total,
+    }
+</file>
+
+<file path="app/shared/utils/rate_limit.py">
+from flask_limiter import Limiter
+from flask_limiter.util import get_remote_address
+
+limiter = Limiter(key_func=get_remote_address, default_limits=[], storage_uri="memory://")
+</file>
+
+<file path="app/trades/offer/__init__.py">
+
+</file>
+
+<file path="app/trades/offer/controller.py">
+from flask import g, request
+
+from app.trades.offer.schema import serialize_offer
+from app.trades.offer.service import (
+    accept_offer as accept_offer_service,
+    decline_offer as decline_offer_service,
+    list_by_trade,
+    list_received,
+    list_sent,
+    send_offer as send_offer_service,
+)
+
+
+def send_offer(trade_id):
+    offer = send_offer_service(
+        trade_id,
+        g.current_user.id,
+        fields=request.form,
+        image_file=request.files.get("image"),
+    )
+    return serialize_offer(offer), 201
+
+
+def offers_for_trade(trade_id):
+    offers = list_by_trade(trade_id)
+    return [serialize_offer(o) for o in offers], 200
+
+
+def accept_offer(offer_id):
+    offer = accept_offer_service(offer_id, g.current_user.id)
+    return serialize_offer(offer), 200
+
+
+def decline_offer(offer_id):
+    offer = decline_offer_service(offer_id, g.current_user.id)
+    return serialize_offer(offer), 200
+
+
+def my_sent_offers():
+    offers = list_sent(g.current_user.id)
+    return [serialize_offer(o) for o in offers], 200
+
+
+def my_received_offers():
+    offers = list_received(g.current_user.id)
+    return [serialize_offer(o) for o in offers], 200
+</file>
+
+<file path="app/trades/offer/model.py">
+from app.shared.database import db
+from app.shared.models.enums import OfferStatus
+from app.shared.utils.mixins import utcnow, uuid_pk_column
+
+
+class Offer(db.Model):
+    __tablename__ = "offers"
+    __table_args__ = (
+        db.Index(
+            "ix_offers_one_pending_per_trade",
+            "trade_id",
+            unique=True,
+            postgresql_where=db.text("status = 'PENDING'"),
+            sqlite_where=db.text("status = 'PENDING'"),
+        ),
+    )
+
+    id = uuid_pk_column()
+    trade_id = db.Column(db.String(36), db.ForeignKey("trades.id"), nullable=False, index=True)
+    offerer_id = db.Column(db.String(36), db.ForeignKey("users.id"), nullable=False, index=True)
+
+    item_name = db.Column(db.String(120), nullable=False)
+    category = db.Column(db.String(50), nullable=False)
+    material = db.Column(db.String(120), nullable=False)
+    weight_kg = db.Column(db.Numeric(8, 2), nullable=True)
+    description = db.Column(db.Text, nullable=True)
+    image_path = db.Column(db.String(255), nullable=True)
+
+    status = db.Column(db.Enum(OfferStatus), nullable=False, default=OfferStatus.PENDING, index=True)
+
+    created_at = db.Column(db.DateTime(timezone=True), default=utcnow, nullable=False)
+    decided_at = db.Column(db.DateTime(timezone=True), nullable=True)
+
+    trade = db.relationship("Trade", back_populates="offers")
+    offerer = db.relationship("User", back_populates="offers")
+</file>
+
+<file path="app/trades/offer/repository.py">
+from sqlalchemy.exc import IntegrityError
+
+from app.shared.database import db
+from app.trades.offer.model import Offer
+from app.trades.model import Trade
+from app.shared.utils.errors import ConflictError
+
+
+def get_offer_by_id(offer_id):
+    return db.session.get(Offer, offer_id)
+
+
+def list_by_trade(trade_id):
+    return Offer.query.filter_by(trade_id=trade_id).order_by(Offer.created_at.desc()).all()
+
+
+def get_accepted_offer(trade_id):
+    from app.shared.models.enums import OfferStatus
+
+    return Offer.query.filter_by(trade_id=trade_id, status=OfferStatus.ACCEPTED).first()
+
+
+def list_sent(offerer_id):
+    return Offer.query.filter_by(offerer_id=offerer_id).order_by(Offer.created_at.desc()).all()
+
+
+def list_received(owner_id):
+    return (
+        Offer.query.join(Trade, Offer.trade_id == Trade.id)
+        .filter(Trade.owner_id == owner_id)
+        .order_by(Offer.created_at.desc())
+        .all()
+    )
+
+
+def add_offer(offer):
+    db.session.add(offer)
+    return offer
+
+
+def save(*_objects):
+    try:
+        db.session.commit()
+    except IntegrityError:
+        db.session.rollback()
+        raise ConflictError("This trade already has an active offer.")
+</file>
+
+<file path="app/trades/offer/routes.py">
+from flask import Blueprint
+
+from app.trades.offer import controller as offer_controller
+from app.auth.utils import require_auth
+
+offer_bp = Blueprint("offer", __name__)
+
+
+@offer_bp.post("/trades/<trade_id>/offers")
+@require_auth
+def send_offer(trade_id):
+    return offer_controller.send_offer(trade_id)
+
+
+@offer_bp.get("/trades/<trade_id>/offers")
+@require_auth
+def offers_for_trade(trade_id):
+    return offer_controller.offers_for_trade(trade_id)
+
+
+@offer_bp.post("/offers/<offer_id>/accept")
+@require_auth
+def accept_offer(offer_id):
+    return offer_controller.accept_offer(offer_id)
+
+
+@offer_bp.post("/offers/<offer_id>/decline")
+@require_auth
+def decline_offer(offer_id):
+    return offer_controller.decline_offer(offer_id)
+
+
+@offer_bp.get("/offers/mine")
+@require_auth
+def my_sent_offers():
+    return offer_controller.my_sent_offers()
+
+
+@offer_bp.get("/offers/received")
+@require_auth
+def my_received_offers():
+    return offer_controller.my_received_offers()
+</file>
+
+<file path="app/trades/offer/schema.py">
+from app.shared.utils.file_storage import build_media_url
+
+
+def serialize_offer(offer):
+    return {
+        "id": offer.id,
+        "tradeId": offer.trade_id,
+        "tradeName": offer.trade.item_name,
+        "offererId": offer.offerer_id,
+        "offererName": offer.offerer.first_name,
+        "itemName": offer.item_name,
+        "category": offer.category,
+        "material": offer.material,
+        "weightKg": float(offer.weight_kg) if offer.weight_kg is not None else None,
+        "description": offer.description,
+        "image": build_media_url(offer.image_path),
+        "status": offer.status.value,
+        "createdAt": offer.created_at.isoformat(),
+        "decidedAt": offer.decided_at.isoformat() if offer.decided_at else None,
+    }
+</file>
+
+<file path="app/trades/offer/service.py">
+from app.shared.models.enums import NotificationType, OfferStatus, TradeStatus
+from app.trades.offer.model import Offer
+from app.trades.offer.repository import (
     add_offer,
     get_offer_by_id,
     list_by_trade as repo_list_by_trade,
@@ -1371,11 +1839,11 @@ from app.repositories.offer_repository import (
     list_sent as repo_list_sent,
     save,
 )
-from app.repositories.trade_repository import get_trade_by_id
-from app.services.notification_service import notify
-from app.utils.errors import ConflictError, ForbiddenError, NotFoundError, ValidationError
-from app.utils.file_storage import save_image
-from app.utils.mixins import utcnow
+from app.trades.repository import get_trade_by_id
+from app.shared.notification.service import notify
+from app.shared.utils.errors import ConflictError, ForbiddenError, NotFoundError, ValidationError
+from app.shared.utils.file_storage import save_image
+from app.shared.utils.mixins import utcnow
 
 REQUIRED_OFFER_FIELDS = ("itemName", "category", "material")
 
@@ -1480,134 +1948,220 @@ def list_received(owner_id):
     return repo_list_received(owner_id)
 </file>
 
-<file path="app/services/rating_service.py">
-from app.models.enums import TradeStatus
-from app.models.rating import Rating
-from app.repositories.offer_repository import get_accepted_offer
-from app.repositories.rating_repository import average_for_user, create_rating, list_for_user as repo_list_for_user
-from app.repositories.trade_repository import get_trade_by_id
-from app.utils.errors import ForbiddenError, NotFoundError, ValidationError
+<file path="app/trades/__init__.py">
+
+</file>
+
+<file path="app/trades/controller.py">
+from flask import g, request
+
+from app.trades.schema import serialize_trade
+from app.trades.service import (
+    create_trade as create_trade_service,
+    get_trade as get_trade_service,
+    list_browse,
+    list_mine,
+    update_trade as update_trade_service,
+)
 
 
-def _other_party(trade, rater_id):
-    accepted_offer = get_accepted_offer(trade.id)
-    if accepted_offer is None:
-        raise ForbiddenError("This trade has no accepted offer to rate.")
-
-    if rater_id == trade.owner_id:
-        return accepted_offer.offerer_id
-    if rater_id == accepted_offer.offerer_id:
-        return trade.owner_id
-    raise ForbiddenError("Only the two parties of a trade may rate each other.")
+def browse_trades():
+    category = request.args.get("category")
+    location = request.args.get("location")
+    trades = list_browse(g.current_user.id, category=category, location=location)
+    return [serialize_trade(t) for t in trades], 200
 
 
-def rate_trade(trade_id, rater_id, *, score, comment=None):
-    trade = get_trade_by_id(trade_id)
-    if trade is None:
-        raise NotFoundError("Trade not found.")
-    if trade.status != TradeStatus.COMPLETED:
-        raise ForbiddenError("You can only rate completed trades.")
-    if not isinstance(score, int) or score < 1 or score > 5:
-        raise ValidationError("score must be an integer between 1 and 5.")
-
-    rated_id = _other_party(trade, rater_id)
-
-    rating = Rating(trade_id=trade.id, rater_id=rater_id, rated_id=rated_id, score=score, comment=comment)
-    return create_rating(rating)
+def my_trades():
+    trades = list_mine(g.current_user.id)
+    return [serialize_trade(t) for t in trades], 200
 
 
-def list_for_user(user_id):
+def get_trade(trade_id):
+    trade = get_trade_service(trade_id)
+    return serialize_trade(trade), 200
+
+
+def create_trade():
+    trade = create_trade_service(
+        g.current_user.id,
+        fields=request.form,
+        image_file=request.files.get("image"),
+    )
+    return serialize_trade(trade), 201
+
+
+def update_trade(trade_id):
+    trade = update_trade_service(
+        trade_id,
+        g.current_user.id,
+        fields=request.form,
+        image_file=request.files.get("image"),
+    )
+    return serialize_trade(trade), 200
+</file>
+
+<file path="app/trades/model.py">
+from app.shared.database import db
+from app.shared.models.enums import TradeStatus, TradingForType
+from app.shared.utils.mixins import utcnow, uuid_pk_column
+
+
+class Trade(db.Model):
+    __tablename__ = "trades"
+
+    id = uuid_pk_column()
+    owner_id = db.Column(db.String(36), db.ForeignKey("users.id"), nullable=False, index=True)
+
+    item_name = db.Column(db.String(120), nullable=False)
+    category = db.Column(db.String(50), nullable=False, index=True)
+    material = db.Column(db.String(120), nullable=False)
+    description = db.Column(db.Text, nullable=True)
+    weight_kg = db.Column(db.Numeric(8, 2), nullable=True)
+    quantity = db.Column(db.Integer, nullable=False, default=1)
+
+    location_text = db.Column(db.String(255), nullable=False, index=True)
+    pickup_location_text = db.Column(db.String(255), nullable=True)
+
+    trading_for_type = db.Column(db.Enum(TradingForType), nullable=False, default=TradingForType.NEGOTIATING)
+    trading_for_value = db.Column(db.String(255), nullable=True)
+
+    image_path = db.Column(db.String(255), nullable=True)
+
+    status = db.Column(db.Enum(TradeStatus), nullable=False, default=TradeStatus.OPEN, index=True)
+
+    created_at = db.Column(db.DateTime(timezone=True), default=utcnow, nullable=False)
+    updated_at = db.Column(db.DateTime(timezone=True), default=utcnow, onupdate=utcnow, nullable=False)
+
+    owner = db.relationship("User", back_populates="trades")
+    offers = db.relationship("Offer", back_populates="trade", lazy="dynamic", cascade="all, delete-orphan")
+
+    @property
+    def has_offers(self):
+        return self.offers.count() > 0
+
+    @property
+    def offer_accepted(self):
+        from app.shared.models.enums import OfferStatus
+
+        return self.offers.filter_by(status=OfferStatus.ACCEPTED).first() is not None
+</file>
+
+<file path="app/trades/repository.py">
+from app.shared.database import db
+from app.trades.model import Trade
+
+
+def get_trade_by_id(trade_id):
+    return db.session.get(Trade, trade_id)
+
+
+def list_browse(*, exclude_owner_id=None, category=None, location=None):
+    query = Trade.query
+    if exclude_owner_id is not None:
+        query = query.filter(Trade.owner_id != exclude_owner_id)
+    if category:
+        query = query.filter(db.func.lower(Trade.category) == category.lower())
+    if location:
+        query = query.filter(Trade.location_text.ilike(f"%{location}%"))
+    return query.order_by(Trade.created_at.desc())
+
+
+def list_mine(owner_id):
+    return Trade.query.filter_by(owner_id=owner_id).order_by(Trade.created_at.desc())
+
+
+def create_trade(trade):
+    db.session.add(trade)
+    db.session.commit()
+    return trade
+
+
+def save_trade(trade):
+    db.session.commit()
+    return trade
+</file>
+
+<file path="app/trades/routes.py">
+from flask import Blueprint
+
+from app.trades import controller as trade_controller
+from app.auth.utils import require_auth
+
+trade_bp = Blueprint("trade", __name__, url_prefix="/trades")
+
+
+@trade_bp.get("")
+@require_auth
+def browse_trades():
+    return trade_controller.browse_trades()
+
+
+@trade_bp.get("/mine")
+@require_auth
+def my_trades():
+    return trade_controller.my_trades()
+
+
+@trade_bp.get("/<trade_id>")
+@require_auth
+def get_trade(trade_id):
+    return trade_controller.get_trade(trade_id)
+
+
+@trade_bp.post("")
+@require_auth
+def create_trade():
+    return trade_controller.create_trade()
+
+
+@trade_bp.patch("/<trade_id>")
+@require_auth
+def update_trade(trade_id):
+    return trade_controller.update_trade(trade_id)
+</file>
+
+<file path="app/trades/schema.py">
+from app.shared.utils.file_storage import build_media_url
+
+
+def serialize_trade(trade):
     return {
-        "ratings": repo_list_for_user(user_id),
-        "average": average_for_user(user_id),
+        "id": trade.id,
+        "name": trade.item_name,
+        "category": trade.category,
+        "material": trade.material,
+        "image": build_media_url(trade.image_path),
+        "location": trade.location_text,
+        "pickupLocation": trade.pickup_location_text,
+        "posterName": trade.owner.first_name,
+        "posterId": trade.owner_id,
+        "weightKg": float(trade.weight_kg) if trade.weight_kg is not None else None,
+        "quantity": trade.quantity,
+        "tradingFor": {
+            "type": trade.trading_for_type.value,
+            "value": trade.trading_for_value,
+        },
+        "description": trade.description,
+        "status": trade.status.value,
+        "hasOffers": trade.has_offers,
+        "offerAccepted": trade.offer_accepted,
+        "createdAt": trade.created_at.isoformat(),
     }
 </file>
 
-<file path="app/services/resource_spot_service.py">
-from flask import current_app
-
-from app.models.enums import ResourceSpotStatus
-from app.models.resource_spot import ResourceSpot
-from app.repositories.resource_spot_repository import (
-    create_spot,
-    get_spot_by_id,
-    list_active as repo_list_active,
-    save_spot,
-)
-from app.utils.errors import ConflictError, NotFoundError, ValidationError
-from app.utils.file_storage import save_image
-from app.utils.mixins import utcnow
-
-REQUIRED_FIELDS = ("name", "material", "locationText")
-
-
-def report_spot(reporter_id, *, fields, image_file):
-    missing = [f for f in REQUIRED_FIELDS if not fields.get(f)]
-    if missing:
-        raise ValidationError(f"Missing required field(s): {', '.join(missing)}.")
-
-    spot = ResourceSpot(
-        reporter_id=reporter_id,
-        name=fields["name"],
-        material=fields["material"],
-        weight_kg=fields.get("weightKg"),
-        quantity=fields.get("quantity"),
-        description=fields.get("description"),
-        location_text=fields["locationText"],
-        permission_note=fields.get("permissionNote"),
-        status=ResourceSpotStatus.ACTIVE,
-        expires_at=ResourceSpot.default_expiry(current_app.config["RESOURCE_SPOT_EXPIRY_DAYS"]),
-    )
-    if image_file is not None:
-        spot.image_path = save_image(image_file, "resource_spots")
-
-    return create_spot(spot)
-
-
-def get_spot(spot_id):
-    spot = get_spot_by_id(spot_id)
-    if spot is None:
-        raise NotFoundError("Resource spot not found.")
-    return spot
-
-
-def list_active():
-    return repo_list_active()
-
-
-def add_photo_update(spot_id, *, image_file):
-    spot = get_spot(spot_id)
-    if spot.status != ResourceSpotStatus.ACTIVE:
-        raise ConflictError("This resource spot is no longer active.")
-    if image_file is None:
-        raise ValidationError("An updated photo is required.")
-
-    spot.image_path = save_image(image_file, "resource_spots")
-    return save_spot(spot)
-
-
-def mark_collected(spot_id):
-    spot = get_spot(spot_id)
-    if spot.status == ResourceSpotStatus.COLLECTED:
-        raise ConflictError("This resource spot is already marked collected.")
-
-    spot.status = ResourceSpotStatus.COLLECTED
-    spot.collected_at = utcnow()
-    return save_spot(spot)
-</file>
-
-<file path="app/services/trade_service.py">
-from app.models.enums import TradeStatus, TradingForType
-from app.models.trade import Trade
-from app.repositories.trade_repository import (
+<file path="app/trades/service.py">
+from app.shared.models.enums import TradeStatus, TradingForType
+from app.trades.model import Trade
+from app.trades.repository import (
     create_trade as create_trade_row,
     get_trade_by_id,
     list_browse as repo_list_browse,
     list_mine as repo_list_mine,
     save_trade,
 )
-from app.utils.errors import ForbiddenError, NotFoundError, ValidationError
-from app.utils.file_storage import save_image
+from app.shared.utils.errors import ForbiddenError, NotFoundError, ValidationError
+from app.shared.utils.file_storage import save_image
 
 VALID_TRADING_FOR_TYPES = {t.value for t in TradingForType}
 
@@ -1687,291 +2241,6 @@ def list_mine(owner_id):
     return repo_list_mine(owner_id).all()
 </file>
 
-<file path="app/services/user_service.py">
-from datetime import timedelta
-
-from flask import current_app
-
-from app.models.user import User
-from app.repositories.user_repository import (
-    create_user,
-    get_user_by_email,
-    get_user_by_id,
-    get_user_by_username,
-    save_user,
-)
-from app.utils.auth import hash_password, verify_password
-from app.utils.errors import ConflictError, ForbiddenError, NotFoundError, ValidationError
-from app.utils.file_storage import save_image
-from app.utils.mixins import ensure_aware, utcnow
-
-
-def register_user(*, username, first_name, last_name, email, password):
-    if get_user_by_email(email) is not None:
-        raise ConflictError("An account with this email already exists.")
-    if get_user_by_username(username) is not None:
-        raise ConflictError("An account with this username already exists.")
-
-    user = User(
-        username=username,
-        first_name=first_name,
-        last_name=last_name,
-        email=email,
-        password_hash=hash_password(password),
-    )
-    return create_user(user)
-
-
-def authenticate_user(*, email, password):
-    user = get_user_by_email(email)
-    if user is None or not verify_password(password, user.password_hash):
-        raise ValidationError("Invalid email or password.", status_code=401)
-    return user
-
-
-def get_profile(user_id):
-    user = get_user_by_id(user_id)
-    if user is None:
-        raise NotFoundError("User not found.")
-    return user
-
-
-def update_profile(user_id, *, updates, current_password, image_file):
-    user = get_user_by_id(user_id)
-    if user is None:
-        raise NotFoundError("User not found.")
-
-    wants_sensitive_change = any(k in updates for k in ("password", "email", "username")) or image_file is not None
-    if wants_sensitive_change and user.profile_updated_at is not None:
-        cooldown = timedelta(days=current_app.config["PROFILE_EDIT_COOLDOWN_DAYS"])
-        next_allowed_at = ensure_aware(user.profile_updated_at) + cooldown
-        if utcnow() < next_allowed_at:
-            days_left = (next_allowed_at - utcnow()).days + 1
-            raise ConflictError(f"You can update your profile again in {days_left} day(s).")
-
-    if "password" in updates or "email" in updates or "username" in updates:
-        if not current_password or not verify_password(current_password, user.password_hash):
-            raise ForbiddenError("Current password is incorrect.")
-
-    if "first_name" in updates:
-        user.first_name = updates["first_name"]
-    if "last_name" in updates:
-        user.last_name = updates["last_name"]
-    if "username" in updates:
-        existing = get_user_by_username(updates["username"])
-        if existing is not None and existing.id != user.id:
-            raise ConflictError("An account with this username already exists.")
-        user.username = updates["username"]
-    if "email" in updates:
-        existing = get_user_by_email(updates["email"])
-        if existing is not None and existing.id != user.id:
-            raise ConflictError("An account with this email already exists.")
-        user.email = updates["email"]
-    if "password" in updates:
-        user.password_hash = hash_password(updates["password"])
-
-    if image_file is not None:
-        user.profile_image_path = save_image(image_file, "profiles")
-
-    if wants_sensitive_change:
-        user.profile_updated_at = utcnow()
-
-    return save_user(user)
-</file>
-
-<file path="app/utils/__init__.py">
-
-</file>
-
-<file path="app/utils/auth.py">
-from functools import wraps
-
-from flask import g
-from flask_jwt_extended import get_jwt_identity, verify_jwt_in_request
-from werkzeug.security import check_password_hash, generate_password_hash
-
-from app.utils.errors import ApiError
-
-
-def hash_password(raw_password):
-    return generate_password_hash(raw_password)
-
-
-def verify_password(raw_password, password_hash):
-    return check_password_hash(password_hash, raw_password)
-
-
-def require_auth(fn):
-    @wraps(fn)
-    def wrapper(*args, **kwargs):
-        verify_jwt_in_request()
-        from app.repositories.user_repository import get_user_by_id
-
-        user = get_user_by_id(get_jwt_identity())
-        if user is None:
-            raise ApiError("User not found.", 401)
-        g.current_user = user
-        return fn(*args, **kwargs)
-
-    return wrapper
-</file>
-
-<file path="app/utils/errors.py">
-class ApiError(Exception):
-    status_code = 400
-
-    def __init__(self, message, status_code=None):
-        super().__init__(message)
-        self.message = message
-        if status_code is not None:
-            self.status_code = status_code
-
-
-class NotFoundError(ApiError):
-    status_code = 404
-
-
-class ConflictError(ApiError):
-    status_code = 409
-
-
-class ForbiddenError(ApiError):
-    status_code = 403
-
-
-class ValidationError(ApiError):
-    status_code = 422
-
-
-def register_error_handlers(app):
-    @app.errorhandler(ApiError)
-    def handle_api_error(err):
-        return {"error": err.message}, err.status_code
-
-    @app.errorhandler(404)
-    def handle_404(err):
-        return {"error": "Not found."}, 404
-
-    @app.errorhandler(500)
-    def handle_500(err):
-        app.logger.exception(err)
-        return {"error": "Internal server error."}, 500
-</file>
-
-<file path="app/utils/file_storage.py">
-import io
-import os
-import uuid
-
-from flask import current_app
-from PIL import Image
-from werkzeug.utils import secure_filename
-
-ALLOWED_EXTENSIONS = {"jpg", "jpeg", "png", "webp"}
-
-
-def _extension(filename):
-    if "." not in filename:
-        return None
-    return filename.rsplit(".", 1)[1].lower()
-
-
-def save_image(file_storage, subfolder):
-    """Validates, strips EXIF, and saves an uploaded image under UPLOAD_ROOT/subfolder.
-
-    Returns the relative path to store on the model (e.g. "trades/<uuid>.jpg").
-    """
-    filename = secure_filename(file_storage.filename or "")
-    ext = _extension(filename)
-    if ext not in ALLOWED_EXTENSIONS:
-        from app.utils.errors import ValidationError
-
-        raise ValidationError("Unsupported image type. Use JPEG, PNG, or WEBP.")
-
-    image = Image.open(file_storage.stream)
-    image = image.convert("RGB") if ext in ("jpg", "jpeg") else image.copy()
-
-    # Strip EXIF (including GPS tags) by re-saving pixel data only.
-    clean = Image.new(image.mode, image.size)
-    clean.putdata(list(image.getdata()))
-
-    upload_root = current_app.config["UPLOAD_ROOT"]
-    target_dir = os.path.join(upload_root, subfolder)
-    os.makedirs(target_dir, exist_ok=True)
-
-    new_filename = f"{uuid.uuid4()}.{ext}"
-    target_path = os.path.join(target_dir, new_filename)
-
-    buffer = io.BytesIO()
-    save_format = "JPEG" if ext in ("jpg", "jpeg") else ext.upper()
-    clean.save(buffer, format=save_format)
-    with open(target_path, "wb") as f:
-        f.write(buffer.getvalue())
-
-    return f"{subfolder}/{new_filename}"
-
-
-def build_media_url(relative_path):
-    if not relative_path:
-        return None
-    base = current_app.config["PUBLIC_BASE_URL"].rstrip("/")
-    return f"{base}/media/{relative_path}"
-</file>
-
-<file path="app/utils/mixins.py">
-import uuid
-from datetime import datetime, timezone
-
-from app.database import db
-
-
-def utcnow():
-    return datetime.now(timezone.utc)
-
-
-def ensure_aware(dt):
-    """SQLite drops tzinfo on round-trip even for DateTime(timezone=True) columns,
-    while Postgres preserves it. Normalize so comparisons work on either backend."""
-    if dt is not None and dt.tzinfo is None:
-        return dt.replace(tzinfo=timezone.utc)
-    return dt
-
-
-def uuid_pk_column():
-    return db.Column(db.String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
-</file>
-
-<file path="app/utils/pagination.py">
-from flask import request
-
-DEFAULT_PAGE_SIZE = 20
-MAX_PAGE_SIZE = 100
-
-
-def paginate_query(query):
-    page = request.args.get("page", 1, type=int)
-    page_size = request.args.get("page_size", DEFAULT_PAGE_SIZE, type=int)
-    page = max(page, 1)
-    page_size = min(max(page_size, 1), MAX_PAGE_SIZE)
-
-    total = query.count()
-    items = query.offset((page - 1) * page_size).limit(page_size).all()
-
-    return {
-        "items": items,
-        "page": page,
-        "page_size": page_size,
-        "total": total,
-    }
-</file>
-
-<file path="app/utils/rate_limit.py">
-from flask_limiter import Limiter
-from flask_limiter.util import get_remote_address
-
-limiter = Limiter(key_func=get_remote_address, default_limits=[], storage_uri="memory://")
-</file>
-
 <file path="app/__init__.py">
 
 </file>
@@ -1984,9 +2253,9 @@ from flask_cors import CORS
 from flask_jwt_extended import JWTManager
 
 from app.config import Config
-from app.database import db, migrate
-from app.utils.errors import register_error_handlers
-from app.utils.rate_limit import limiter
+from app.shared.database import db, migrate
+from app.shared.utils.errors import register_error_handlers
+from app.shared.utils.rate_limit import limiter
 
 
 def create_app(config_object=Config):
@@ -1997,7 +2266,7 @@ def create_app(config_object=Config):
     migrate.init_app(app, db)
 
     with app.app_context():
-        from app import models  # noqa: F401  (registers models with SQLAlchemy metadata)
+        from app.shared import models  # noqa: F401  (registers models with SQLAlchemy metadata)
     JWTManager(app)
     CORS(app, origins=app.config["CORS_ORIGINS"], supports_credentials=True)
     limiter.init_app(app)
@@ -2028,14 +2297,14 @@ def create_app(config_object=Config):
 
 
 def _register_blueprints(app):
-    from app.routes.auth_routes import auth_bp
-    from app.routes.user_routes import user_bp
-    from app.routes.trade_routes import trade_bp
-    from app.routes.offer_routes import offer_bp
-    from app.routes.resource_spot_routes import resource_spot_bp
-    from app.routes.notification_routes import notification_bp
-    from app.routes.rating_routes import rating_bp
-    from app.routes.ai_routes import ai_bp
+    from app.auth.routes import auth_bp
+    from app.profile.routes import user_bp
+    from app.trades.routes import trade_bp
+    from app.trades.offer.routes import offer_bp
+    from app.map.routes import resource_spot_bp
+    from app.shared.notification.routes import notification_bp
+    from app.shared.rating.routes import rating_bp
+    from app.scan.routes import ai_bp
 
     app.register_blueprint(auth_bp)
     app.register_blueprint(user_bp)
@@ -2748,6 +3017,7 @@ psycopg2-binary==2.9.10
 python-dotenv==1.0.1
 Pillow==11.0.0
 google-generativeai==0.8.3
+google-auth==2.38.0
 gunicorn==23.0.0
 </file>
 
