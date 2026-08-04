@@ -7,8 +7,9 @@ class Config:
     
     GOOGLE_CLIENT_ID = os.environ.get("GOOGLE_CLIENT_ID", "870031204616-e1cvvs7qd31ik6ef993f70baji0v1273.apps.googleusercontent.com")
     
-    SQLALCHEMY_DATABASE_URI = "postgresql://postgres:luke123@localhost:5433/rosacycle"
-    SQLALCHEMY_TRACK_MODIFICATIONS = False
+    SQLALCHEMY_DATABASE_URI = os.environ.get(
+        "DATABASE_URL", "postgresql://postgres:postgres@localhost:5432/rosacycle"
+    )
 
     UPLOAD_ROOT = os.environ.get("UPLOAD_ROOT", os.path.join("instance", "uploads"))
     PUBLIC_BASE_URL = os.environ.get("PUBLIC_BASE_URL", "http://localhost:5000")
