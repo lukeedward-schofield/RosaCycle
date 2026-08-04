@@ -6,11 +6,12 @@ _BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))  # backe
 class Config:
     SECRET_KEY = os.environ.get("SECRET_KEY", "dev")
     JWT_SECRET_KEY = os.environ.get("JWT_SECRET_KEY", "dev")
-
+    
+    GOOGLE_CLIENT_ID = os.environ.get("GOOGLE_CLIENT_ID", "870031204616-e1cvvs7qd31ik6ef993f70baji0v1273.apps.googleusercontent.com")
+    
     SQLALCHEMY_DATABASE_URI = os.environ.get(
         "DATABASE_URL", "postgresql://postgres:postgres@localhost:5432/rosacycle"
     )
-    SQLALCHEMY_TRACK_MODIFICATIONS = False
 
     # Resolved to an absolute path so file-save and file-serve agree regardless
     # of the process's working directory at launch (relative paths otherwise

@@ -1,9 +1,10 @@
 import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
+import { GoogleLogin } from '@react-oauth/google';
 import Logo from '@/shared/components/common/Logo';
 import PrimaryButton from '@/shared/components/common/PrimaryButton';
 import PasswordInput from '@/shared/components/common/PasswordInput';
-import { loginUser } from '@/shared/services/api';
+import { loginUser, loginWithGoogle } from '@/shared/services/api';
 import { useAuth } from '@/features/auth/AuthContext';
 
 export default function SignInScreen() {
@@ -32,6 +33,21 @@ export default function SignInScreen() {
     }
   };
 
+  const handleGoogleSuccess = async (credentialResponse) => {
+    if (loading) return;
+    setLoading(true);
+    setError('');
+    try {
+      const { user, token } = await loginWithGoogle(credentialResponse.credential);
+      login(user, token);
+      navigate('/trades', { replace: true });
+    } catch (err) {
+      setError(err.message || 'Google authentication failed. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <div className="min-h-screen flex flex-col justify-center px-6 py-10">
       <div className="flex justify-center mb-8">
@@ -40,6 +56,21 @@ export default function SignInScreen() {
 
       <h1 className="text-2xl font-bold text-gray-900 text-center">Welcome back</h1>
       <p className="text-sm text-gray-500 text-center mt-1 mb-8">Sign in to continue.</p>
+
+      {/* Google Login Section */}
+      <div className="flex flex-col items-center mb-6">
+        <GoogleLogin
+          onSuccess={handleGoogleSuccess}
+          onError={() => setError('Google Sign-In was unsuccessful.')}
+          useOneTap
+        />
+        
+        <div className="flex items-center w-full mt-6 mb-2">
+          <div className="flex-1 border-t border-gray-200"></div>
+          <span className="px-3 text-sm text-gray-400">or continue with email</span>
+          <div className="flex-1 border-t border-gray-200"></div>
+        </div>
+      </div>
 
       <form onSubmit={handleSubmit} className="space-y-4">
         <div>
