@@ -75,6 +75,12 @@ export async function registerUser({ firstName, lastName, username, email, passw
 export async function loginUser({ email, password }) {
   return apiFetch('/auth/login', { method: 'POST', json: { email, password } });
 }
+export async function loginWithGoogle(googleToken) {
+  return apiFetch('/auth/google', { 
+    method: 'POST', 
+    json: { token: googleToken } 
+  });
+}
 
 export async function logoutUser() {
   try {

@@ -1,6 +1,6 @@
 import { useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { LogOut, Camera, Star } from 'lucide-react';
+import { LogOut } from 'lucide-react';
 import Header from '@/shared/components/layout/Header';
 import PrimaryButton from '@/shared/components/common/PrimaryButton';
 import PasswordInput from '@/shared/components/common/PasswordInput';
@@ -89,41 +89,6 @@ export default function EditProfileScreen() {
       <Header onBack={() => navigate(-1)} title="Edit Profile" />
 
       <div className="p-5 space-y-4">
-        {/* Avatar */}
-        <div className="flex flex-col items-center gap-2 py-2">
-          <button
-            onClick={handlePickImage}
-            className="relative w-24 h-24 rounded-full active:scale-95 transition-transform"
-            aria-label="Change profile photo"
-          >
-            {imagePreview ? (
-              <img src={imagePreview} alt="Profile" className="w-24 h-24 rounded-full object-cover" />
-            ) : (
-              <div className="w-24 h-24 rounded-full bg-brand-600 text-white text-3xl font-semibold flex items-center justify-center">
-                {initial}
-              </div>
-            )}
-            <span className="absolute bottom-0 right-0 w-8 h-8 rounded-full bg-gray-900 text-white flex items-center justify-center border-2 border-white">
-              <Camera size={15} />
-            </span>
-          </button>
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept="image/*"
-            onChange={handleImageChange}
-            className="hidden"
-          />
-
-          {typeof user?.rating === 'number' && (
-            <div className="flex items-center gap-1 text-sm text-gray-600 mt-1">
-              <Star size={15} className="fill-yellow-400 text-yellow-400" />
-              <span className="font-semibold">{user.rating.toFixed(1)}</span>
-              <span className="text-gray-400">rating</span>
-            </div>
-          )}
-        </div>
-
         <fieldset className="space-y-4">
           <div className="grid grid-cols-2 gap-3">
             <div>
