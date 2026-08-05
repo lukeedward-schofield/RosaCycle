@@ -36,7 +36,7 @@ def register_error_handlers(app):
         return {"error": "Not found."}, 404
 
 
-
+# specified exception
     @app.errorhandler(500)
     def handle_500(err):
         traceback.print_exc()

@@ -3,6 +3,7 @@ import { AuthProvider, useAuth } from '@/features/auth/AuthContext';
 
 import SignInScreen from '@/features/auth/screens/SignInScreen';
 import SignUpScreen from '@/features/auth/screens/SignUpScreen';
+import ConfirmDetailsScreen from '@/features/auth/screens/ConfirmDetailsScreen';
 import EditProfileScreen from '@/features/profile/screens/EditProfileScreen';
 import TradesScreen from '@/features/trades/screens/TradesScreen';
 import TradeDetailScreen from '@/features/trades/screens/TradeDetailScreen';
@@ -18,6 +19,7 @@ import ResourceSpotConfirmScreen from '@/features/map/screens/ResourceSpotConfir
 import SpotReportedScreen from '@/features/map/screens/SpotReportedScreen';
 import MapScreen from '@/features/map/screens/MapScreen';
 import RateTraderScreen from '@/features/trades/screens/RateTraderScreen';
+
 
 // Gate for screens that require a signed-in user; bounces to /signin otherwise.
 function RequireAuth({ children }) {
@@ -45,7 +47,7 @@ export default function App() {
           {/* Auth (email + password) */}
           <Route path="/signin" element={<SignInScreen />} />
           <Route path="/signup" element={<SignUpScreen />} />
-
+          <Route path="/confirm-details" element={<RequireAuth><ConfirmDetailsScreen /></RequireAuth>} />
           <Route path="/profile/edit" element={<RequireAuth><EditProfileScreen /></RequireAuth>} />
 
           {/* Trades (Browse + My Trades) */}
