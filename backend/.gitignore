@@ -1,6 +1,30 @@
+# Virtual environment
 venv/
+.venv/
+
+# Python cache
 __pycache__/
-*.pyc
-.env
+*.py[cod]
+
+# Flask
 instance/
+
+# Testing
+.pytest_cache/
+
+# Type checking
+.mypy_cache/
+
+# Uploads (if user-generated)
+uploads/
+
+# SQLite (if ever used)
 *.db
+*.sqlite
+*.sqlite3
+
+# Environment variables
+.env
+
+# VS Code
+.vscode/
