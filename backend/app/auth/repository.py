@@ -1,4 +1,4 @@
-from app.database import db
+from app.shared.database import db
 from app.auth.user_model import User
 
 
