@@ -19,17 +19,10 @@ from app.shared.utils.errors import (
 )
 from app.shared.utils.file_storage import save_image
 from app.shared.utils.mixins import ensure_aware, utcnow
-<<<<<<< HEAD
-import re
-import secrets
-from google.auth.transport import requests as google_requests
-from google.oauth2 import id_token as google_id_token
-=======
 from google.oauth2 import id_token
 from google.auth.transport import requests as google_requests
 from google.oauth2 import id_token
 from google.auth.transport import requests as google_requests
->>>>>>> 1c85ca97b23140307080dae7d556468f44df397a
 
 
 def verify_google_token(token: str) -> dict:
