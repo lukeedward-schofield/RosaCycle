@@ -179,6 +179,14 @@ export async function addResourceSpotPhoto(id, imageFile) {
   return apiFetch(`/resource-spots/${id}/photos`, { method: 'POST', form });
 }
 
+export async function updateResourceSpot(id, fields) {
+  return apiFetch(`/resource-spots/${id}`, { method: 'PATCH', json: fields });
+}
+
+export async function deleteResourceSpot(id) {
+  return apiFetch(`/resource-spots/${id}`, { method: 'DELETE' });
+}
+
 export async function markResourceSpotCollected(id) {
   return apiFetch(`/resource-spots/${id}/collected`, { method: 'POST' });
 }

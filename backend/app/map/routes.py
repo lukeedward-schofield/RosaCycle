@@ -24,10 +24,22 @@ def create_spot():
     return resource_spot_controller.create_spot()
 
 
+@resource_spot_bp.patch("/<spot_id>")
+@require_auth
+def update_spot(spot_id):
+    return resource_spot_controller.update_spot(spot_id)
+
+
 @resource_spot_bp.post("/<spot_id>/photos")
 @require_auth
 def update_spot_photo(spot_id):
     return resource_spot_controller.update_spot_photo(spot_id)
+
+
+@resource_spot_bp.delete("/<spot_id>")
+@require_auth
+def delete_spot(spot_id):
+    return resource_spot_controller.delete_spot(spot_id)
 
 
 @resource_spot_bp.post("/<spot_id>/collected")
