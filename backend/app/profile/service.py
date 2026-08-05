@@ -79,10 +79,11 @@ def update_profile(user_id, *, updates, current_password, image_file):
             )
 
     if "password" in updates or "email" in updates or "username" in updates:
-        if not current_password or not verify_password(
-            current_password, user.password_hash
-        ):
-            raise ForbiddenError("Current password is incorrect.")
+        if user.password_hash is not None:
+            if not current_password or not verify_password(
+                current_password, user.password_hash
+            ):
+                raise ForbiddenError("Current password is incorrect.")
 
     if "first_name" in updates:
         user.first_name = updates["first_name"]

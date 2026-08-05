@@ -63,11 +63,11 @@ export default function SignUpScreen() {
     setLoading(true);
     setError('');
     try {
-      const { user, token } = await loginWithGoogle(credentialResponse.credential);
+      const { user, token, isNewUser } = await loginWithGoogle(credentialResponse.credential);
       login(user, token);
-      navigate('/trades', { replace: true });
+      navigate(isNewUser ? '/confirm-details' : '/trades', { replace: true });
     } catch (err) {
-      setError(err.message || 'Google sign-up failed. Please try again.');
+      setError(err.message || 'Google authentication failed. Please try again.');
     } finally {
       setLoading(false);
     }
