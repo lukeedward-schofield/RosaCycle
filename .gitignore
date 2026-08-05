@@ -30,3 +30,6 @@ htmlcov/
 # Build artifacts
 dist/
 build/
+
+#Rar Files
+*.rar
