@@ -1,3 +1,5 @@
+import traceback
+
 class ApiError(Exception):
     status_code = 400
 
@@ -33,7 +35,10 @@ def register_error_handlers(app):
     def handle_404(err):
         return {"error": "Not found."}, 404
 
+
+
     @app.errorhandler(500)
     def handle_500(err):
-        app.logger.exception(err)
+        traceback.print_exc()
+        app.logger.exception("Unhandled exception")
         return {"error": "Internal server error."}, 500
