@@ -109,7 +109,7 @@ def update_profile(user_id, *, updates, current_password, image_file):
     if "password" in updates:
         user.password_hash = hash_password(updates["password"])
 
-    if image_file is not None:
+    if image_file and image_file.filename:
         user.profile_image_path = save_image(image_file, "profiles")
 
     if changing_info:
