@@ -18,8 +18,10 @@ def update_me():
         ("email", "email"),
         ("password", "password"),
     ):
-        if form_key in form and form[form_key]:
-            updates[field] = form[form_key]
+        if form_key in form:
+            value = form[form_key].strip()
+            if value:
+                updates[field] = value
 
     current_password = form.get("currentPassword")
     image_file = request.files.get("image")
