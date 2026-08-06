@@ -161,6 +161,16 @@ export async function fetchReceivedOffers() {
 
 // --- Resource Spots ---------------------------------------------------------------
 
+export async function assessResourceSpotPhoto(imageFile) {
+  const form = new FormData();
+  form.append("image", imageFile);
+
+  return apiFetch("/ai/assess-resource-spot-photo", {
+    method: "POST",
+    form,
+  });
+}
+
 export async function fetchResourceSpots() {
   return apiFetch('/resource-spots');
 }

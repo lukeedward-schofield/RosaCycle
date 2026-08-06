@@ -113,6 +113,7 @@ function ResourceSpotMarkers({ spots, selectedId, onSelect }) {
   const geocodingLibrary = useMapsLibrary('geocoding');
   const [positions, setPositions] = useState({});
   const positionCache = useRef(new globalThis.Map());
+  
 
   useEffect(() => {
     if (!geocodingLibrary) return undefined;
@@ -151,6 +152,9 @@ function ResourceSpotMarkers({ spots, selectedId, onSelect }) {
                 componentRestrictions: { country: 'PH' },
                 region: 'PH',
               });
+              
+              console.log("Trying:", address);
+              console.log("Results:", response.results);
 
               const matchingResult = response.results.find((result) => {
                 const resultLocation = result.geometry?.location;

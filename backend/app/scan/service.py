@@ -1,4 +1,5 @@
 import json
+import traceback
 
 from flask import current_app
 
@@ -21,11 +22,43 @@ someone wants to trade and respond with ONLY a JSON object (no markdown) with th
 "material" (short free-text description, e.g. "Steel scrap"), "weightKg" (number, your best estimate),
 "confidence" (integer 0-100, your confidence in this assessment)."""
 
-RESOURCE_SPOT_ASSESSMENT_PROMPT = """You are assisting a community resource-recovery app. Look at the photo of a
-location containing discarded but reusable materials and respond with ONLY a JSON object (no markdown) with these
-keys: "material" (one of: Wood, Metal, Plastic, Fabric, Paper, E-waste, Mixed, Organic), "weightKg" (number, your
-best estimate of total material weight), "quantity" (integer, your best estimate of item count),
-"confidence" (integer 0-100, your confidence in this assessment)."""
+RESOURCE_SPOT_ASSESSMENT_PROMPT = RESOURCE_SPOT_ASSESSMENT_PROMPT = """
+You are assisting a community resource-recovery app.
+
+Analyze the image and respond ONLY with valid JSON.
+
+{
+  "name": "...",
+  "material": "...",
+  "weightKg": 0,
+  "quantity": 0,
+  "description": "...",
+  "confidence": 0
+}
+
+Rules:
+
+"name" should be a short title such as:
+"Pile of Cardboard"
+"Mixed Plastic Waste"
+"Scrap Metal"
+"Wood Pallets"
+
+"description" should briefly describe what is visible.
+
+"material" must be one of:
+
+Wood
+Metal
+Plastic
+Fabric
+Paper
+E-waste
+Mixed
+Organic
+
+Return ONLY JSON.
+"""
 
 EMPTY_TRADE_RESULT = {
     "itemName": "",
@@ -103,9 +136,18 @@ def assess_trade_photo(image_file):
     except ContentBlockedError:
         current_app.logger.info("Gemini blocked a trade photo for content safety")
         return {**EMPTY_TRADE_RESULT, "blocked": True}
-    except Exception:
-        current_app.logger.exception("Gemini trade assessment failed")
-        return {**EMPTY_TRADE_RESULT, "blocked": False}
+
+    
+    except Exception as e:
+        current_app.logger.exception("Gemini resource spot assessment failed")
+        print("\n===== GEMINI ERROR =====")
+        print(e)
+        print("========================\n")
+
+    return {
+        **EMPTY_SPOT_RESULT,
+        "blocked": False,
+    }
 
 
 def assess_resource_spot_photo(image_file):

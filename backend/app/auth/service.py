@@ -1,8 +1,10 @@
-from datetime import timedelta
+import re
+import secrets
 
 from flask import current_app
+from google.auth.transport import requests as google_requests
+from google.oauth2 import id_token
 
-from app.auth.user_model import User
 from app.auth.repository import (
     create_user,
     get_user_by_email,
@@ -10,135 +12,113 @@ from app.auth.repository import (
     get_user_by_username,
     save_user,
 )
+from app.auth.user_model import User
 from app.auth.utils import hash_password, verify_password
 from app.shared.utils.errors import (
     ConflictError,
-    ForbiddenError,
     NotFoundError,
     ValidationError,
 )
-from app.shared.utils.file_storage import save_image
-from app.shared.utils.mixins import ensure_aware, utcnow
-from google.oauth2 import id_token
-from google.auth.transport import requests as google_requests
-from google.oauth2 import id_token
-from google.auth.transport import requests as google_requests
 
 
 def verify_google_token(token: str) -> dict:
-    """Verifies the ID token sent from frontend with Google's servers."""
+    """Verify a Google ID token."""
     try:
-        client_id = current_app.config.get("GOOGLE_CLIENT_ID")
-        id_info = id_token.verify_oauth2_token(
+        client_id = current_app.config["GOOGLE_CLIENT_ID"]
+
+        return id_token.verify_oauth2_token(
             token,
             google_requests.Request(),
-            audience=client_id if client_id else None,
+            audience=client_id,
         )
-        return id_info
-    except Exception as e:
-        raise ValidationError(f"Invalid Google token: {str(e)}")
+    except Exception as exc:
+        raise ValidationError(
+            f"Invalid Google token: {exc}",
+            status_code=401,
+        ) from exc
 
 
-def google_login_or_register(id_token_str: str) -> tuple[User, bool]:
-    """Authenticates a user via Google ID Token; creates a profile if new.
-    Returns (user, is_new_user)."""
-    payload = verify_google_token(id_token_str)
+def _generate_unique_username(base: str) -> str:
+    base = re.sub(r"[^a-zA-Z0-9_]", "", base).lower()
+
+    if not base:
+        base = "user"
+
+    username = base
+    counter = 1
+
+    while get_user_by_username(username) is not None:
+        username = f"{base}{counter}"
+        counter += 1
+
+    return username
+
+
+def google_login_or_register(token: str):
+    """
+    Authenticate a user using a Google ID token.
+
+    Returns:
+        (user, is_new_user)
+    """
+
+    payload = verify_google_token(token)
 
     email = payload.get("email")
     google_id = payload.get("sub")
-    first_name = payload.get("given_name", "Google")
-    last_name = payload.get("family_name", "User")
-    picture = payload.get("picture")
 
     if not email:
-        raise ValidationError("Google account must have an email address.")
+        raise ValidationError(
+            "Google account has no email address.",
+            status_code=401,
+        )
 
-    user = User.query.filter(
-        (User.google_id == google_id) | (User.email == email)
-    ).first()
+    first_name = payload.get("given_name") or "Google"
+    last_name = payload.get("family_name") or "User"
+    picture = payload.get("picture")
 
-    if user:
-        if not user.google_id:
+    user = get_user_by_email(email)
+
+    if user is not None:
+        updated = False
+
+        if getattr(user, "google_id", None) != google_id:
             user.google_id = google_id
+            updated = True
+
+        if picture and hasattr(user, "profile_image_path"):
+            if user.profile_image_path != picture:
+                user.profile_image_path = picture
+                updated = True
+
+        if updated:
             save_user(user)
+
         return user, False
 
-    base_username = email.split("@")[0]
-    username = base_username
-    counter = 1
-    while get_user_by_username(username) is not None:
-        username = f"{base_username}{counter}"
-        counter += 1
+    username = _generate_unique_username(email.split("@")[0])
 
-    new_user = User(
+    random_password = secrets.token_urlsafe(32)
+
+    user = User(
         username=username,
         first_name=first_name,
         last_name=last_name,
         email=email,
         google_id=google_id,
         profile_image_path=picture,
+        password_hash=hash_password(random_password),
     )
-    return create_user(new_user), True
 
+    user = create_user(user)
 
-def verify_google_token(token: str) -> dict:
-    """Verifies the ID token sent from the frontend against Google's servers."""
-    try:
-        client_id = current_app.config.get("GOOGLE_CLIENT_ID")
-        id_info = id_token.verify_oauth2_token(
-            token,
-            google_requests.Request(),
-            audience=client_id if client_id else None,
-        )
-        return id_info
-    except Exception as e:
-        raise ValidationError(f"Invalid Google token: {str(e)}")
+    return user, True
 
-
-def google_login_or_register(id_token_str: str) -> tuple[User, bool]:
-    """Authenticates a user via Google ID Token; creates a profile if new.
-    Returns (user, is_new_user)."""
-    payload = verify_google_token(id_token_str)
-
-    email = payload.get("email")
-    google_id = payload.get("sub")
-    first_name = payload.get("given_name", "Google")
-    last_name = payload.get("family_name", "User")
-    picture = payload.get("picture")
-
-    if not email:
-        raise ValidationError("Google account must have an email address.")
-
-    user = User.query.filter(
-        (User.google_id == google_id) | (User.email == email)
-    ).first()
-
-    if user:
-        if not user.google_id:
-            user.google_id = google_id
-            save_user(user)
-        return user, False
-
-    base_username = email.split("@")[0]
-    username = base_username
-    counter = 1
-    while get_user_by_username(username) is not None:
-        username = f"{base_username}{counter}"
-        counter += 1
-
-    new_user = User(
-        username=username,
-        first_name=first_name,
-        last_name=last_name,
-        email=email,
-        google_id=google_id,
-        profile_image_path=picture,
-    )
-    return create_user(new_user), True
 
 def register_user(*, username, first_name, last_name, email, password):
     if get_user_by_email(email) is not None:
         raise ConflictError("An account with this email already exists.")
+
     if get_user_by_username(username) is not None:
         raise ConflictError("An account with this username already exists.")
 
@@ -149,70 +129,26 @@ def register_user(*, username, first_name, last_name, email, password):
         email=email,
         password_hash=hash_password(password),
     )
+
     return create_user(user)
 
 
 def authenticate_user(*, email, password):
     user = get_user_by_email(email)
+
     if user is None or not verify_password(password, user.password_hash):
-        raise ValidationError("Invalid email or password.", status_code=401)
+        raise ValidationError(
+            "Invalid email or password.",
+            status_code=401,
+        )
+
     return user
 
 
 def get_profile(user_id):
     user = get_user_by_id(user_id)
+
     if user is None:
         raise NotFoundError("User not found.")
+
     return user
-
-
-def _verify_google_token(token):
-    """Verifies the Google ID token against our configured Client ID."""
-    client_id = current_app.config.get("GOOGLE_CLIENT_ID")
-    try:
-        id_info = google_id_token.verify_oauth2_token(
-            token, google_requests.Request(), audience=client_id
-        )
-    except ValueError as exc:
-        raise ValidationError("Invalid Google token.", status_code=401) from exc
-    return id_info
-
-
-def _generate_unique_username(base):
-    base = re.sub(r"[^a-zA-Z0-9_]", "", base).lower() or "user"
-    base = base[:40] or "user"
-    candidate = base
-    suffix = 0
-    while get_user_by_username(candidate) is not None:
-        suffix += 1
-        candidate = f"{base}{suffix}"
-    return candidate
-
-
-def google_login_or_register(token):
-    """Verifies a Google ID token, then logs the user in or auto-registers them.
-
-    Google-registered accounts get an unusable random password hash (they never
-    log in with a password, only via Google) so the existing NOT NULL constraint
-    on password_hash doesn't need a migration.
-    """
-    id_info = _verify_google_token(token)
-    email = id_info.get("email")
-    if not email:
-        raise ValidationError("Google account has no email associated.", status_code=401)
-
-    user = get_user_by_email(email)
-    if user is not None:
-        return user
-
-    username = _generate_unique_username(email.split("@")[0])
-    unusable_password = secrets.token_urlsafe(32)
-
-    user = User(
-        username=username,
-        first_name=id_info.get("given_name") or "Google",
-        last_name=id_info.get("family_name") or "User",
-        email=email,
-        password_hash=hash_password(unusable_password),
-    )
-    return create_user(user)

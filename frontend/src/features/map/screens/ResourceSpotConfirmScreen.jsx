@@ -1,9 +1,12 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Header from '@/shared/components/layout/Header';
 import PrimaryButton from '@/shared/components/common/PrimaryButton';
 import { SPOT_MATERIAL_OPTIONS } from '@/shared/utils/constants';
-import { reportResourceSpot } from '@/shared/services/api';
+import {
+  reportResourceSpot,
+  assessResourceSpotPhoto,
+} from '@/shared/services/api';
 import { getPendingCapture, clearPendingCapture } from '@/shared/lib/pendingCapture';
 
 const inputClass =
@@ -21,9 +24,40 @@ export default function ResourceSpotConfirmScreen() {
   const [permissionNote, setPermissionNote] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
+  const [scanning, setScanning] = useState(false);
 
   const imageFile = getPendingCapture();
   const previewUrl = imageFile ? URL.createObjectURL(imageFile) : null;
+  useEffect(() => {
+  if (!imageFile) return;
+
+  const scan = async () => {
+    try {
+      setScanning(true);
+
+      const result = await assessResourceSpotPhoto(imageFile);
+      console.log("Gemini returned:", result);
+
+      setName(result.name || "");
+      setMaterial(result.material || "");
+      setWeightKg(result.weightKg?.toString() || "");
+      setQuantity(result.quantity?.toString() || "");
+      setDescription(result.description || "");
+
+      // if your backend returns confidence
+      if (result.locationText)
+        setLocationText(result.locationText);
+
+    } catch (err) {
+      console.error(err);
+      setError("AI couldn't analyze this image.");
+    } finally {
+      setScanning(false);
+    }
+  };
+
+  scan();
+}, [imageFile]);
 
   const canSubmit = name.trim().length > 0 && material && locationText.trim().length > 0;
 
@@ -66,6 +100,11 @@ export default function ResourceSpotConfirmScreen() {
       </div>
 
       <div className="p-5 space-y-6">
+        {scanning && (
+    <div className="bg-blue-50 text-blue-700 rounded-lg p-3 mb-4 text-sm">
+    🔍 AI is analyzing the image...
+  </div>
+)}
         <div>
           <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-3">
             AI-Detected (editable)
@@ -153,8 +192,12 @@ export default function ResourceSpotConfirmScreen() {
 
         {error && <p className="text-sm text-red-500">{error}</p>}
 
-        <PrimaryButton onClick={handleSubmit} disabled={!canSubmit || submitting}>
-          {submitting ? 'Reporting...' : 'Report Spot'}
+        <PrimaryButton onClick={handleSubmit} disabled={!canSubmit || submitting || scanning}>
+          {scanning
+            ? 'Analyzing...'
+            : submitting
+            ? 'Reporting...'
+            : 'Report Spot'}
         </PrimaryButton>
       </div>
     </div>
