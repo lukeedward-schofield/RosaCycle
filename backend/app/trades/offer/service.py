@@ -14,6 +14,8 @@ from app.shared.utils.errors import ConflictError, ForbiddenError, NotFoundError
 from app.shared.utils.file_storage import save_image
 from app.shared.utils.mixins import utcnow
 
+from app.trades.messaging.service import create_conversation_if_needed
+
 REQUIRED_OFFER_FIELDS = ("itemName", "category", "material")
 
 
@@ -71,19 +73,27 @@ def _get_offer_for_decision(offer_id, caller_id):
 
 def accept_offer(offer_id, caller_id):
     offer = _get_offer_for_decision(offer_id, caller_id)
+
     offer.status = OfferStatus.ACCEPTED
     offer.decided_at = utcnow()
     offer.trade.status = TradeStatus.COMPLETED
+
+    create_conversation_if_needed(
+        offer.trade,
+        offer,
+    )
+
     save(offer, offer.trade)
 
     notify(
         recipient_id=offer.offerer_id,
         type=NotificationType.OFFER_ACCEPTED,
         title="Offer accepted",
-        body=f"Your offer on \"{offer.trade.item_name}\" was accepted!",
+        body=f'Your offer on "{offer.trade.item_name}" was accepted!',
         trade_id=offer.trade_id,
         offer_id=offer.id,
     )
+
     return offer
 
 

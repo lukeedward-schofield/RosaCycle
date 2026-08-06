@@ -22,5 +22,10 @@ def serialize_trade(trade):
         "status": trade.status.value,
         "hasOffers": trade.has_offers,
         "offerAccepted": trade.offer_accepted,
+        "conversationId": (
+            trade.conversation.id
+            if trade.conversation is not None
+            else None
+        ),
         "createdAt": trade.created_at.isoformat(),
     }

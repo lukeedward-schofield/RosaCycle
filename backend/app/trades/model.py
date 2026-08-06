@@ -41,3 +41,9 @@ class Trade(db.Model):
         from app.shared.models.enums import OfferStatus
 
         return self.offers.filter_by(status=OfferStatus.ACCEPTED).first() is not None
+
+    conversation = db.relationship(
+        "Conversation",
+        back_populates="trade",
+        uselist=False,
+    )

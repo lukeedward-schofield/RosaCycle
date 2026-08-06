@@ -33,3 +33,9 @@ class Offer(db.Model):
 
     trade = db.relationship("Trade", back_populates="offers")
     offerer = db.relationship("User", back_populates="offers")
+
+    conversation = db.relationship(
+        "Conversation",
+        back_populates="offer",
+        uselist=False,
+    )
