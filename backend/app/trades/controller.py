@@ -8,6 +8,19 @@ from app.trades.service import (
     list_mine,
     update_trade as update_trade_service,
 )
+from app.trades.ai_service import assess_trade_photo
+
+def assess_trade():
+    image = request.files.get("image")
+
+    if image is None:
+        return {
+            "error": "Image is required."
+        }, 400
+
+    result = assess_trade_photo(image)
+
+    return result, 200
 
 
 def browse_trades():
