@@ -1,4 +1,5 @@
 from flask import request
+from flask import g
 
 from app.shared.utils.errors import ValidationError
 from app.trades.messaging.schema import (
@@ -19,12 +20,10 @@ def get_conversation_by_id(conversation_id):
 def get_conversation_messages(conversation_id):
     messages = list_messages(conversation_id)
 
-    return {
-        "messages": [
-            serialize_message(message)
-            for message in messages
-        ]
-    }, 200
+    return [
+        serialize_message(message, g.current_user.id)
+        for message in messages
+    ], 200
 
 def create_message(conversation_id):
     body = request.get_json(silent=True) or {}

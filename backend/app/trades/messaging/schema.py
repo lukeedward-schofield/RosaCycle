@@ -1,7 +1,7 @@
 from app.auth.schema import serialize_user
 
 
-def serialize_message(message):
+def serialize_message(message, current_user_id=None):
     return {
         "id": message.id,
         "sender": serialize_user(message.sender),
@@ -12,6 +12,7 @@ def serialize_message(message):
             if message.read_at
             else None
         ),
+        "fromMe": message.sender_id == current_user_id,
     }
 
 

@@ -73,16 +73,17 @@ def _get_offer_for_decision(offer_id, caller_id):
 
 def accept_offer(offer_id, caller_id):
     offer = _get_offer_for_decision(offer_id, caller_id)
+
     offer.status = OfferStatus.ACCEPTED
     offer.decided_at = utcnow()
     offer.trade.status = TradeStatus.COMPLETED
 
-    save(offer, offer.trade)
-
-    conversation = create_conversation_if_needed(
+    create_conversation_if_needed(
         offer.trade,
         offer,
     )
+
+    save(offer, offer.trade)
 
     notify(
         recipient_id=offer.offerer_id,
