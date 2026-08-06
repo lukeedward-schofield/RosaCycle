@@ -27,21 +27,44 @@ def report_spot(reporter_id, *, fields, image_file):
     missing = [field for field in REQUIRED_FIELDS if not fields.get(field)]
     if missing:
         raise ValidationError(f"Missing required field(s): {', '.join(missing)}.")
-
+    
     spot = ResourceSpot(
-        reporter_id=reporter_id,
-        name=fields["name"],
-        material=fields["material"],
-        weight_kg=fields.get("weightKg"),
-        quantity=fields.get("quantity"),
-        description=fields.get("description"),
-        location_text=fields["locationText"],
-        permission_note=fields.get("permissionNote"),
-        status=ResourceSpotStatus.ACTIVE,
-        expires_at=ResourceSpot.default_expiry(
-            current_app.config["RESOURCE_SPOT_EXPIRY_DAYS"]
+    reporter_id=reporter_id,
+    name=fields["name"],
+    material=fields["material"],
+    weight_kg=fields.get("weightKg"),
+    quantity=fields.get("quantity"),
+    description=fields.get("description"),
+
+    location_text=fields["locationText"],
+
+    latitude=float(fields["latitude"]) if fields.get("latitude") else None,
+    longitude=float(fields["longitude"]) if fields.get("longitude") else None,
+
+    permission_note=fields.get("permissionNote"),
+
+    status=ResourceSpotStatus.ACTIVE,
+
+    expires_at=ResourceSpot.default_expiry(
+        current_app.config["RESOURCE_SPOT_EXPIRY_DAYS"]
         ),
     )
+    # Backup fields for location data, in case we need to store them separately from the geospatial point.
+    # spot = ResourceSpot(
+    #     reporter_id=reporter_id,
+    #     name=fields["name"],
+    #     material=fields["material"],
+    #     weight_kg=fields.get("weightKg"),
+    #     quantity=fields.get("quantity"),
+    #     description=fields.get("description"),
+    #     location_text=fields["locationText"],
+    #     permission_note=fields.get("permissionNote"),
+    #     status=ResourceSpotStatus.ACTIVE,
+    #     expires_at=ResourceSpot.default_expiry(
+    #         current_app.config["RESOURCE_SPOT_EXPIRY_DAYS"]
+    #     ),
+    # )
+    
     if image_file is not None:
         spot.image_path = save_image(image_file, "resource_spots")
 

@@ -2,14 +2,20 @@ from app.shared.utils.file_storage import build_media_url
 
 
 def serialize_resource_spot(spot):
-    return {
+     return {
         "id": spot.id,
         "name": spot.name,
         "material": spot.material,
         "weightKg": float(spot.weight_kg) if spot.weight_kg is not None else None,
         "quantity": spot.quantity,
         "description": spot.description,
+
         "location": spot.location_text,
+
+        # NEW
+        "latitude": spot.latitude,
+        "longitude": spot.longitude,
+
         "permissionNote": spot.permission_note,
         "image": build_media_url(spot.image_path),
         "status": spot.status.value,

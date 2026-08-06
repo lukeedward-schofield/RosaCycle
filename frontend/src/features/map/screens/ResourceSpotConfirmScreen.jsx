@@ -21,6 +21,8 @@ export default function ResourceSpotConfirmScreen() {
   const [quantity, setQuantity] = useState('');
   const [description, setDescription] = useState('');
   const [locationText, setLocationText] = useState('');
+  const [latitude, setLatitude] = useState(null);
+  const [longitude, setLongitude] = useState(null);
   const [permissionNote, setPermissionNote] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
@@ -59,6 +61,30 @@ export default function ResourceSpotConfirmScreen() {
   scan();
 }, [imageFile]);
 
+  useEffect(() => {
+    if (!navigator.geolocation) {
+      console.error("Geolocation is not supported.");
+      return;
+    }
+
+  navigator.geolocation.getCurrentPosition(
+    (position) => {
+      console.log("GPS SUCCESS:", position.coords);
+
+      setLatitude(position.coords.latitude);
+      setLongitude(position.coords.longitude);
+    },
+    (error) => {
+      console.error("GPS ERROR:", error);
+    },
+    {
+      enableHighAccuracy: true,
+      timeout: 10000,
+      maximumAge: 0,
+    }
+  );
+}, []);
+
   const canSubmit = name.trim().length > 0 && material && locationText.trim().length > 0;
 
   const handleSubmit = async () => {
@@ -66,6 +92,7 @@ export default function ResourceSpotConfirmScreen() {
     setSubmitting(true);
     setError('');
     try {
+      console.log("Submitting GPS:", latitude, longitude);
       const saved = await reportResourceSpot(
         {
           name: name.trim(),
@@ -74,7 +101,12 @@ export default function ResourceSpotConfirmScreen() {
           quantity: Number(quantity) || undefined,
           description: description.trim(),
           locationText: locationText.trim(),
-          permissionNote: permissionNote.trim(),
+
+         latitude,
+         longitude,
+
+         permissionNote: permissionNote.trim(),
+
         },
         imageFile
       );
