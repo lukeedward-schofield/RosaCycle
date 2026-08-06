@@ -10,6 +10,7 @@ from app.shared.utils.errors import register_error_handlers
 from app.shared.utils.rate_limit import limiter
 
 
+
 def create_app(config_object=Config):
     app = Flask(__name__, instance_relative_config=True)
     app.config.from_object(config_object)
@@ -53,6 +54,8 @@ def _register_blueprints(app):
     from app.profile.routes import user_bp
     from app.trades.routes import trade_bp
     from app.trades.offer.routes import offer_bp
+    from app.trades.messaging.routes import messaging_bp
+
     from app.map.routes import resource_spot_bp
     from app.shared.notification.routes import notification_bp
     from app.shared.rating.routes import rating_bp
@@ -61,6 +64,7 @@ def _register_blueprints(app):
     app.register_blueprint(auth_bp)
     app.register_blueprint(user_bp)
     app.register_blueprint(trade_bp)
+    app.register_blueprint(messaging_bp)
     app.register_blueprint(offer_bp)
     app.register_blueprint(resource_spot_bp)
     app.register_blueprint(notification_bp)

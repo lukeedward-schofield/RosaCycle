@@ -28,3 +28,8 @@ def create_spot(spot):
 def save_spot(spot):
     db.session.commit()
     return spot
+
+
+def delete_spot(spot):
+    db.session.delete(spot)
+    db.session.commit()

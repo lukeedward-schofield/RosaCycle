@@ -7,12 +7,12 @@ class User(db.Model):
     __tablename__ = "users"
 
     id = uuid_pk_column()
-    username = db.Column(db.String(50), unique=True, nullable=False, index=True)
+    username = db.Column(db.String(50), unique=True, nullable=False)
     first_name = db.Column(db.String(50), nullable=False)
     last_name = db.Column(db.String(50), nullable=False)
-    email = db.Column(db.String(255), unique=True, nullable=False, index=True)
+    email = db.Column(db.String(255), unique=True, nullable=False)
     password_hash = db.Column(db.String(255), nullable=True)  # nullable for Google-only accounts
-    google_id = db.Column(db.String(255), unique=True, nullable=True, index=True)
+    google_id = db.Column(db.String(255), unique=True, nullable=True)
     profile_image_path = db.Column(db.String(255), nullable=True)
     role = db.Column(db.Enum(UserRole), default=UserRole.USER, nullable=False)
     created_at = db.Column(db.DateTime(timezone=True), default=utcnow, nullable=False)

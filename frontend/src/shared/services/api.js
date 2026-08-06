@@ -159,7 +159,35 @@ export async function fetchReceivedOffers() {
   return apiFetch('/offers/received');
 }
 
+
+// --- Messaging ---------------------------------------------------------------
+
+export async function fetchConversation(conversationId) {
+  return apiFetch(`/messages/${conversationId}`);
+}
+
+export async function fetchMessages(conversationId) {
+  return apiFetch(`/messages/${conversationId}/messages`);
+}
+
+export async function sendMessage(conversationId, content) {
+  return apiFetch(`/messages/${conversationId}/messages`, {
+    method: 'POST',
+    json: { content },
+  });
+}
+
 // --- Resource Spots ---------------------------------------------------------------
+
+export async function assessResourceSpotPhoto(imageFile) {
+  const form = new FormData();
+  form.append("image", imageFile);
+
+  return apiFetch("/ai/assess-resource-spot-photo", {
+    method: "POST",
+    form,
+  });
+}
 
 export async function fetchResourceSpots() {
   return apiFetch('/resource-spots');
@@ -177,6 +205,14 @@ export async function reportResourceSpot(fields, imageFile) {
 export async function addResourceSpotPhoto(id, imageFile) {
   const form = buildFormData({}, imageFile);
   return apiFetch(`/resource-spots/${id}/photos`, { method: 'POST', form });
+}
+
+export async function updateResourceSpot(id, fields) {
+  return apiFetch(`/resource-spots/${id}`, { method: 'PATCH', json: fields });
+}
+
+export async function deleteResourceSpot(id) {
+  return apiFetch(`/resource-spots/${id}`, { method: 'DELETE' });
 }
 
 export async function markResourceSpotCollected(id) {

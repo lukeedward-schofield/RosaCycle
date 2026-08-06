@@ -78,12 +78,19 @@ def update_profile(user_id, *, updates, current_password, image_file):
                 f"You can change your password again in {days_left} day(s)."
             )
 
-    if "password" in updates or "email" in updates or "username" in updates:
-        if user.password_hash is not None:
-            if not current_password or not verify_password(
-                current_password, user.password_hash
-            ):
-                raise ForbiddenError("Current password is incorrect.")
+    # Password verification is only required for password-based accounts.
+    # Google accounts don't know the random password hash stored internally.
+    requires_password = (
+    user.google_id is None
+    and ("password" in updates or "email" in updates or "username" in updates)
+    )
+
+    if requires_password:
+     if not current_password or not verify_password(
+        current_password,
+        user.password_hash,
+    ):
+        raise ForbiddenError("Current password is incorrect.")
 
     if "first_name" in updates:
         user.first_name = updates["first_name"]
@@ -102,7 +109,7 @@ def update_profile(user_id, *, updates, current_password, image_file):
     if "password" in updates:
         user.password_hash = hash_password(updates["password"])
 
-    if image_file is not None:
+    if image_file and image_file.filename:
         user.profile_image_path = save_image(image_file, "profiles")
 
     if changing_info:
