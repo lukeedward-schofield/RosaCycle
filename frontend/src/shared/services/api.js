@@ -159,6 +159,24 @@ export async function fetchReceivedOffers() {
   return apiFetch('/offers/received');
 }
 
+
+// --- Messaging ---------------------------------------------------------------
+
+export async function fetchConversation(conversationId) {
+  return apiFetch(`/messages/${conversationId}`);
+}
+
+export async function fetchMessages(conversationId) {
+  return apiFetch(`/messages/${conversationId}/messages`);
+}
+
+export async function sendMessage(conversationId, content) {
+  return apiFetch(`/messages/${conversationId}/messages`, {
+    method: 'POST',
+    json: { content },
+  });
+}
+
 // --- Resource Spots ---------------------------------------------------------------
 
 export async function fetchResourceSpots() {
