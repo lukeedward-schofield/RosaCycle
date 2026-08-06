@@ -2,22 +2,46 @@ import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import Header from '@/shared/components/layout/Header';
 import MessageThread from '@/features/trades/components/trade/MessageThread';
-import { fetchTradeById } from '@/shared/services/api';
+import { fetchTradeById, fetchMessages, sendMessage } from '@/shared/services/api';
 
 export default function MessageThreadScreen() {
   const navigate = useNavigate();
   const { id } = useParams();
   const [trade, setTrade] = useState(null);
 
-  useEffect(() => {
-    fetchTradeById(id).then(setTrade).catch(() => setTrade(null));
-  }, [id]);
+useEffect(() => {
+  async function loadConversation() {
+    try {
+      const trade = await fetchTradeById(id);
+      setTrade(trade);
 
-  // Placeholder local state — real-time sync is Integration Lead's job.
-  const [messages, setMessages] = useState([
-    { id: 1, text: 'Hi! Is this still available?', fromMe: false },
-    { id: 2, text: 'Yes, still open for trade!', fromMe: true },
-  ]);
+      if (!trade.conversationId) {
+        setMessages([]);
+        return;
+      }
+
+      const data = await fetchMessages(trade.conversationId);
+
+      setMessages(
+        data.map((message) => ({
+          id: message.id,
+          text: message.content,
+          fromMe: message.fromCurrentUser,
+        }))
+      );
+    } catch (err) {
+      console.error(err);
+      setTrade(null);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  loadConversation();
+}, [id]);
+
+const [messages, setMessages] = useState([]);
+const [loading, setLoading] = useState(true);
 
   const handleSend = (text) => {
     setMessages((prev) => [...prev, { id: prev.length + 1, text, fromMe: true }]);
