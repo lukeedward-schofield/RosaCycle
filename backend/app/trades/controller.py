@@ -15,12 +15,15 @@ def assess_trade():
 
     if image is None:
         return {
+            "success": False,
             "error": "Image is required."
         }, 400
 
     result = assess_trade_photo(image)
 
-    return result, 200
+    status = 200 if result["success"] else 400
+
+    return result, status
 
 
 def browse_trades():

@@ -47,22 +47,28 @@ def assess_trade_photo(image_file):
         ]
 
         if missing:
-            raise ValidationError(
-                f"AI response missing field(s): {', '.join(missing)}."
+            raise ValueError(
+                f"Gemini response missing fields(s): {', '.join(missing)}."
             )
 
         return {
-            "itemName": result["itemName"],
-            "category": result["category"],
-            "material": result["material"],
-            "description": result["description"],
-            "weightKg": result["weightKg"],
-            "quantity": result["quantity"],
+            "success": True,
+            "assessment": result,
+        }
+
+    except ContentBlockedError:
+        return {
+            "success": False,
+            "error": "Image violates AI safety policy.",
         }
 
     except Exception:
-        logger.exception("Gemini trade assessment failed")
-        raise
+        current_app.logger.exception("Trade assessment failed")
+
+        return {
+            "success": False,
+            "error": "Unable to assess image.",
+        }
 
 def _call_gemini(image_file, prompt):
     import google.generativeai as genai

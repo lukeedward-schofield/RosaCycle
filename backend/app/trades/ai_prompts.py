@@ -14,7 +14,7 @@ Return ONLY valid JSON.
 
 Rules:
 
-- itemName should be short.
+- title should be short (2-5 words).
 - category should be one of:
   Plastic
   Metal
@@ -26,14 +26,16 @@ Rules:
   Rubber
   Mixed
 
-- material should be as specific as possible.
-- description should be one concise sentence.
-- quantity should estimate how many visible reusable objects exist.
-- weightKg should estimate the total weight.
+- material should identify the specific material whenever possible.
+- description should be one concise sentence describing the visible item(s).
+- quantity should estimate the number of reusable items visible.
+- estimatedWeightKg should estimate the total weight in kilograms.
+
+If you are not confident:
+- use "" for text fields
+- use 0 for numeric fields
 
 Never output markdown.
-
-Never explain anything.
-
-Only output JSON.
+Never explain your reasoning.
+Return ONLY the JSON object.
 """
