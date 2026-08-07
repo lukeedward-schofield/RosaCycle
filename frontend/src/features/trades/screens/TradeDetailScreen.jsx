@@ -7,7 +7,7 @@ import StatusPill from '@/shared/components/common/StatusPill';
 import PrimaryButton from '@/shared/components/common/PrimaryButton';
 import EcoImpactBox from '@/features/trades/components/trade/EcoImpactBox';
 import { formatTradingFor, getTradeStatus } from '@/shared/utils/tradeFormat';
-import { fetchTradeById, fetchOffersForTrade, acceptOffer, declineOffer } from '@/shared/services/api';
+import { fetchTradeById, fetchOffersForTrade, acceptOffer, declineOffer, fetchUserRatings } from '@/shared/services/api';
 
 export default function TradeDetailScreen() {
   const { id } = useParams();
@@ -23,6 +23,7 @@ export default function TradeDetailScreen() {
   const [notFound, setNotFound] = useState(false);
   const [error, setError] = useState('');
   const [decidingOfferId, setDecidingOfferId] = useState(null);
+  const [posterRating, setPosterRating] = useState(null);
 
   const loadTrade = () => {
     setLoading(true);
@@ -47,6 +48,30 @@ export default function TradeDetailScreen() {
     loadTrade();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id, isOwner]);
+
+  useEffect(() => {
+    if (!trade?.posterId) {
+      setPosterRating(null);
+      return undefined;
+    }
+
+    let cancelled = false;
+    fetchUserRatings(trade.posterId)
+      .then((result) => {
+        if (cancelled) return;
+        setPosterRating({
+          average: result?.average ?? null,
+          count: Array.isArray(result?.ratings) ? result.ratings.length : 0,
+        });
+      })
+      .catch(() => {
+        if (!cancelled) setPosterRating(null);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [trade?.posterId]);
 
   const decide = async (offerId, action) => {
     if (decidingOfferId) return;
@@ -96,9 +121,21 @@ export default function TradeDetailScreen() {
             <h1 className="text-2xl font-bold text-gray-900">{trade.name}</h1>
             {isOwner && <StatusPill status={getTradeStatus(trade)} />}
           </div>
-          <p className="text-sm text-gray-500 mt-1">
-            Posted by {trade.posterName}
-            {trade.distanceKm != null && ` • ${trade.distanceKm}km`}
+          <p className="text-sm text-gray-500 mt-1 flex items-center flex-wrap gap-x-1">
+            <span>Posted by {trade.posterName}</span>
+            {posterRating?.average != null && (
+              <span
+                className="inline-flex items-center gap-1"
+                title={`${posterRating.count} rating${posterRating.count === 1 ? '' : 's'}`}
+              >
+                <span className="text-yellow-500" aria-hidden="true">★</span>
+                <span className="font-medium text-gray-600">
+                  {Number(posterRating.average).toFixed(1)}
+                </span>
+                <span className="text-gray-400">({posterRating.count})</span>
+              </span>
+            )}
+            {trade.distanceKm != null && <span>• {trade.distanceKm}km</span>}
           </p>
           {trade.location && <p className="text-sm text-gray-500 mt-0.5">📍 {trade.location}</p>}
         </div>

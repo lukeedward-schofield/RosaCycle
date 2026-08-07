@@ -8,7 +8,7 @@ import FloatingActionButton from '@/shared/components/common/FloatingActionButto
 import FilterChipRow from '@/features/trades/components/trade/FilterChipRow';
 import TradeCard from '@/features/trades/components/cards/TradeCard';
 import StatusPill from '@/shared/components/common/StatusPill';
-import { fetchBrowseTrades, fetchMyTrades, fetchMyOffers } from '@/shared/services/api';
+import { fetchBrowseTrades, fetchMyTrades, fetchMyOffers, fetchUserRatings } from '@/shared/services/api';
 
 const SUB_TABS = [
   { key: 'browse', label: 'Browse' },
@@ -30,6 +30,7 @@ export default function TradesScreen() {
   const [browseTrades, setBrowseTrades] = useState([]);
   const [myTrades, setMyTrades] = useState([]);
   const [offerHistory, setOfferHistory] = useState([]);
+  const [posterRatings, setPosterRatings] = useState({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
@@ -54,6 +55,41 @@ export default function TradesScreen() {
       cancelled = true;
     };
   }, []);
+
+  useEffect(() => {
+    const posterIds = [...new Set(browseTrades.map((trade) => trade.posterId).filter(Boolean))];
+    if (posterIds.length === 0) {
+      setPosterRatings({});
+      return undefined;
+    }
+
+    let cancelled = false;
+
+    Promise.allSettled(
+      posterIds.map(async (posterId) => {
+        const result = await fetchUserRatings(posterId);
+        return {
+          posterId,
+          average: result?.average ?? null,
+          count: Array.isArray(result?.ratings) ? result.ratings.length : 0,
+        };
+      })
+    ).then((results) => {
+      if (cancelled) return;
+
+      const nextRatings = {};
+      results.forEach((result) => {
+        if (result.status !== 'fulfilled') return;
+        const { posterId, average, count } = result.value;
+        nextRatings[posterId] = { average, count };
+      });
+      setPosterRatings(nextRatings);
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [browseTrades]);
 
   const setSubTab = (tab) => {
     const next = new URLSearchParams(searchParams);
@@ -105,7 +141,12 @@ export default function TradesScreen() {
 
           <div className="space-y-4">
             {filteredBrowse.map((trade) => (
-              <TradeCard key={trade.id} trade={trade} onClick={() => navigate(`/trades/${trade.id}`)} />
+              <TradeCard
+                key={trade.id}
+                trade={trade}
+                ratingSummary={posterRatings[trade.posterId]}
+                onClick={() => navigate(`/trades/${trade.id}`)}
+              />
             ))}
             {filteredBrowse.length === 0 && (
               <p className="text-center text-sm text-gray-400 py-10">No items match your search.</p>

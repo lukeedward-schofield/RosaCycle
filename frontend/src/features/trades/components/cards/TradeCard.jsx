@@ -9,7 +9,7 @@ import { getTradeStatus } from '@/shared/utils/tradeFormat';
  *   (name, material, weight, status); full detail (quantity, description,
  *   trading-for) lives in TradeDetailScreen behind "View Details".
  */
-export default function TradeCard({ trade, variant = 'browse', onClick }) {
+export default function TradeCard({ trade, variant = 'browse', onClick, ratingSummary }) {
   const { image, name, material, distanceKm, posterName, weightKg } = trade;
 
   return (
@@ -36,11 +36,20 @@ export default function TradeCard({ trade, variant = 'browse', onClick }) {
 
         {variant === 'browse' ? (
           <div className="flex items-center justify-between mt-1">
-            <p className="text-sm text-gray-500">
-              {distanceKm != null && `${distanceKm}km`}
-              {distanceKm != null && posterName && ' • '}
-              {posterName}
-            </p>
+            <div className="flex items-center gap-1 text-sm text-gray-500">
+              {distanceKm != null && <span>{distanceKm}km</span>}
+              {distanceKm != null && posterName && <span>•</span>}
+              {posterName && <span>{posterName}</span>}
+              {posterName && ratingSummary?.average != null && (
+                <span className="inline-flex items-center gap-1 ml-1" title={`${ratingSummary.count} rating${ratingSummary.count === 1 ? '' : 's'}`}>
+                  <span className="text-yellow-500" aria-hidden="true">★</span>
+                  <span className="font-medium text-gray-600">
+                    {Number(ratingSummary.average).toFixed(1)}
+                  </span>
+                  <span className="text-gray-400">({ratingSummary.count})</span>
+                </span>
+              )}
+            </div>
           </div>
         ) : (
           <div className="mt-2">
