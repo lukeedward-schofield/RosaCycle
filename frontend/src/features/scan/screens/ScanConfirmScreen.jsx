@@ -34,20 +34,20 @@ export default function ScanConfirmScreen() {
 
   const imageFile = getPendingCapture();
 
-  useEffect(() => {
-
-    if (!imageFile) {
-        setAssessing(false);
-        return;
-    }
-
-    analyzeImage();
-
-  }, []);
-
-  const previewUrl = imageFile ? URL.createObjectURL(imageFile) : null;
+  const [previewUrl, setPreviewUrl] = useState(null);
 
   useEffect(() => {
+      if (!imageFile) return;
+
+      const url = URL.createObjectURL(imageFile);
+      setPreviewUrl(url);
+
+      return () => URL.revokeObjectURL(url);
+  }, [imageFile]);
+
+  useEffect(() => {
+
+    let cancelled = false;
 
     if (!imageFile) {
         setAssessing(false);
@@ -55,10 +55,10 @@ export default function ScanConfirmScreen() {
     }
 
     const assess = async () => {
-
         try {
-
             const result = await assessTradePhoto(imageFile);
+
+            if (cancelled) return;
 
             setValues({
                 ...BLANK_VALUES,
@@ -74,15 +74,23 @@ export default function ScanConfirmScreen() {
 
             console.error(err);
 
+            setError(
+                "AI couldn't analyze this image. Please fill in the details manually."
+            );
+
         } finally {
-
-            setAssessing(false);
-
+            if(!cancelled){
+              setAssessing(false);
+          }
         }
 
     };
 
     assess();
+
+    return () => {
+        cancelled = true;
+    };
 
   }, [imageFile]);
 
@@ -97,38 +105,7 @@ export default function ScanConfirmScreen() {
         )
       : Boolean(values.itemName?.trim() && values.category?.trim() && values.material?.trim());
 
-  const analyzeImage = async () => {
 
-      try {
-
-          const result = await assessTradePhoto(imageFile);
-
-          setValues({
-
-              ...BLANK_VALUES,
-
-              itemName: result.itemName,
-              category: result.category,
-              material: result.material,
-              description: result.description,
-              weightKg: result.weightKg,
-              quantity: result.quantity,
-
-          });
-
-      } catch (err) {
-
-          console.error(err);
-
-          setError("AI couldn't analyze this image. Please fill in the details manually.");
-
-      } finally {
-
-          setAssessing(false);
-
-      }
-
-  };
 
 
   const handlePrimaryAction = async () => {
@@ -198,7 +175,7 @@ export default function ScanConfirmScreen() {
                   </p>
 
                   <p className="text-gray-500 mt-2">
-                      AI is identifying the material and estimating its weight.
+                      AI is identifying your item and estimating its details.
                   </p>
 
               </div>
@@ -223,7 +200,7 @@ export default function ScanConfirmScreen() {
 
                       <PrimaryButton
                           onClick={handlePrimaryAction}
-                          disabled={!canSubmit || submitting}
+                          disabled={!canSubmit || submitting || assessing}
                       >
                           {submitting
                               ? "Submitting..."
