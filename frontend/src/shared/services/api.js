@@ -132,6 +132,17 @@ export async function updateTrade(id, fields, imageFile) {
   return apiFetch(`/trades/${id}`, { method: 'PATCH', form });
 }
 
+export async function assessTradePhoto(imageFile) {
+    const form = buildFormData({}, imageFile);
+
+    return apiFetch("/trades/assess-photo", {
+        method: "POST",
+        form,
+    });
+}
+
+
+
 // --- Offers ---------------------------------------------------------------
 
 export async function sendOffer(tradeId, fields, imageFile) {

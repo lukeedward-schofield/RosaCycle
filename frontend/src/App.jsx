@@ -19,7 +19,7 @@ import ResourceSpotConfirmScreen from '@/features/map/screens/ResourceSpotConfir
 import SpotReportedScreen from '@/features/map/screens/SpotReportedScreen';
 import MapScreen from '@/features/map/screens/MapScreen';
 import RateTraderScreen from '@/features/trades/screens/RateTraderScreen';
-
+import CreateTradeScreen from "@/features/trades/screens/CreateTradeScreen";
 
 // Gate for screens that require a signed-in user; bounces to /signin otherwise.
 function RequireAuth({ children }) {
@@ -55,6 +55,7 @@ export default function App() {
           {/* AI item scan, for posting a new trade or sending an offer on an existing one */}
           <Route path="/trades/scan" element={<RequireAuth><ScanScreen /></RequireAuth>} />
           <Route path="/trades/scan/confirm" element={<RequireAuth><ScanConfirmScreen /></RequireAuth>} />
+          <Route path="/trades/create" element={<RequireAuth><CreateTradeScreen /></RequireAuth>}/>
           <Route path="/trades/scan/created" element={<RequireAuth><TradeCreatedScreen /></RequireAuth>} />
           <Route path="/trades/:id" element={<RequireAuth><TradeDetailScreen /></RequireAuth>} />
           <Route path="/trades/:id/edit" element={<RequireAuth><EditListingScreen /></RequireAuth>} />
