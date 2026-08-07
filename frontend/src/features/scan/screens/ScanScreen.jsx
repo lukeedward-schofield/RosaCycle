@@ -20,11 +20,14 @@ export default function ScanScreen() {
   const [previewUrl, setPreviewUrl] = useState(null);
 
   const handleFileSelected = (file) => {
+    console.log("FILE SELECTED: ", file)
     setPendingCapture(file);
     setPreviewUrl(URL.createObjectURL(file));
   };
 
   const goToConfirm = () => {
+    console.log('GOING TO CONFIRM');
+    console.log('pending capture should exist');
     navigate('/trades/scan/confirm', { state: { context, tradeId } });
   };
 
