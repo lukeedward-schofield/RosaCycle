@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { ChevronDown } from 'lucide-react';
-import { APIProvider, AdvancedMarker, Map, Pin, useMap, useMapsLibrary } from '@vis.gl/react-google-maps';
+import { APIProvider, AdvancedMarker, Map, Pin, useMap, } from '@vis.gl/react-google-maps';
 import Header from '@/shared/components/layout/Header';
 import BottomNav from '@/shared/components/layout/BottomNav';
 import MaterialTag from '@/shared/components/common/MaterialTag';
@@ -28,234 +28,69 @@ const SANTA_ROSA_BOUNDS = {
   west: 121.00,
 };
 
-// Approximate centers are used only when Google cannot resolve a very detailed
-// block/lot address. They keep the marker inside the correct neighborhood
-// instead of silently hiding the resource spot.
-const SANTA_ROSA_LOCATION_FALLBACKS = [
-  // Put barangays before subdivisions. An address such as
-  // "Golden City, Brgy. Dila" should fall back to Dila rather than to a
-  // generic subdivision coordinate.
-  {
-    matches: ['brgy. dila', 'brgy dila', 'barangay dila', 'dila'],
-    position: { lat: 14.2916, lng: 121.1076 },
-  },
-  {
-    matches: ['golden city'],
-    position: { lat: 14.2892, lng: 121.1072 },
-  },
-  {
-    matches: ['balibago'],
-    position: { lat: 14.2925, lng: 121.0838 },
-  },
-];
-
 const inputClass =
   'w-full bg-gray-100 rounded-lg px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-brand-500';
 const labelClass = 'text-xs font-semibold text-gray-500 mb-1 block';
 
-function getApproximateFallbackPosition(location) {
-  const normalized = location.toLowerCase();
-  const match = SANTA_ROSA_LOCATION_FALLBACKS.find((entry) =>
-    entry.matches.some((name) => normalized.includes(name)),
-  );
-  return match?.position ?? null;
-}
-
-function isInsideSantaRosa(position) {
-  return (
-    position.lat >= SANTA_ROSA_BOUNDS.south &&
-    position.lat <= SANTA_ROSA_BOUNDS.north &&
-    position.lng >= SANTA_ROSA_BOUNDS.west &&
-    position.lng <= SANTA_ROSA_BOUNDS.east
-  );
-}
-
-function extractBarangayName(location) {
-  const match = location.match(/\b(?:brgy\.?|barangay)\s+([a-z0-9 .'-]+?)(?=,|$)/i);
-  return match?.[1]?.trim() ?? null;
-}
-
-function buildGeocodingAddresses(location) {
-  const normalized = location.replace(/\s+/g, ' ').trim();
-  const withCity = /santa\s*rosa/i.test(normalized)
-    ? normalized
-    : `${normalized}, Santa Rosa, Laguna`;
-
-  const broaderLocation = normalized
-    .replace(/\b(?:blk|block)\s*[-#]?\s*\d+\b/gi, '')
-    .replace(/\b(?:lot)\s*[-#]?\s*\d+\b/gi, '')
-    .replace(/\b(?:ph|phase)\s*[-#]?\s*\d+\b/gi, '')
-    .replace(/\s*,\s*,+/g, ', ')
-    .replace(/^[,\s]+|[,\s]+$/g, '')
-    .replace(/\s{2,}/g, ' ');
-
-  const broaderWithCity = /santa\s*rosa/i.test(broaderLocation)
-    ? broaderLocation
-    : `${broaderLocation}, Santa Rosa, Laguna`;
-
-  const barangay = extractBarangayName(normalized);
-  const barangayAddress = barangay
-    ? `Barangay ${barangay}, Santa Rosa, Laguna, Philippines`
-    : null;
-
-  // Try the human-entered address first, then a cleaned address, then the
-  // barangay by itself. The barangay-only request gives Google a reliable
-  // fallback when block/lot or subdivision text is not recognized.
-  return [...new Set([
-    `${withCity}, Philippines`,
-    `${broaderWithCity}, Philippines`,
-    barangayAddress,
-  ].filter(Boolean))];
-}
-
 function ResourceSpotMarkers({ spots, selectedId, onSelect }) {
   const map = useMap();
-  const geocodingLibrary = useMapsLibrary('geocoding');
-  const [positions, setPositions] = useState({});
-  const positionCache = useRef(new globalThis.Map());
-  
+
+   useEffect(() => {
+    console.log("Loaded spots:");
+    spots.forEach(spot => {
+      console.log(spot.name, spot.latitude, spot.longitude);
+    });
+  }, [spots]);
+
 
   useEffect(() => {
-    if (!geocodingLibrary) return undefined;
+    if (!map) return;
 
-    if (spots.length === 0) {
-      setPositions({});
-      return undefined;
-    }
+    const markerPositions = spots
+      .filter(s => s.latitude != null && s.longitude != null)
+      .map(s => ({
+        lat: Number(s.latitude),
+        lng: Number(s.longitude),
+      }));
 
-    let cancelled = false;
-    const geocoder = new geocodingLibrary.Geocoder();
-
-    // Remove the old pin immediately while an edited address is being
-    // resolved, so the UI never keeps showing a stale location.
-    setPositions({});
-
-    const geocodeSpots = async () => {
-      const nextPositions = {};
-
-      for (const spot of spots) {
-        const location = spot.location?.trim();
-        if (!location) continue;
-
-        const cacheKey = location.toLowerCase();
-        const barangay = extractBarangayName(location)?.toLowerCase() ?? null;
-        let position = positionCache.current.get(cacheKey);
-
-        if (position === undefined) {
-          position = null;
-
-          for (const address of buildGeocodingAddresses(location)) {
-            try {
-              const response = await geocoder.geocode({
-                address,
-                bounds: SANTA_ROSA_BOUNDS,
-                componentRestrictions: { country: 'PH' },
-                region: 'PH',
-              });
-              
-              console.log("Trying:", address);
-              console.log("Results:", response.results);
-
-              const matchingResult = response.results.find((result) => {
-                const resultLocation = result.geometry?.location;
-                if (!resultLocation) return false;
-
-                const positionIsValid = isInsideSantaRosa({
-                  lat: resultLocation.lat(),
-                  lng: resultLocation.lng(),
-                });
-                if (!positionIsValid) return false;
-
-                // When the owner explicitly enters a barangay, do not accept
-                // a broad result that points somewhere else in Santa Rosa.
-                if (barangay) {
-                  return result.formatted_address.toLowerCase().includes(barangay);
-                }
-
-                return true;
-              });
-
-              const resultLocation = matchingResult?.geometry?.location;
-              if (resultLocation) {
-                position = {
-                  lat: resultLocation.lat(),
-                  lng: resultLocation.lng(),
-                };
-                break;
-              }
-            } catch {
-              // Try the next, broader address variation.
-            }
-          }
-
-          if (!position) {
-            position = getApproximateFallbackPosition(location);
-            if (position) {
-              console.warn(`Using an approximate neighborhood marker for: ${location}`);
-            } else {
-              console.warn(`Could not locate resource spot: ${location}`);
-            }
-          }
-
-          positionCache.current.set(cacheKey, position);
-        }
-
-        if (position) nextPositions[spot.id] = position;
-      }
-
-      if (!cancelled) setPositions(nextPositions);
-    };
-
-    geocodeSpots();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [geocodingLibrary, spots]);
-
-  useEffect(() => {
-    if (!map) return undefined;
-
-    const markerPositions = Object.values(positions);
-    if (markerPositions.length === 0) return undefined;
+    if (markerPositions.length === 0) return;
 
     if (markerPositions.length === 1) {
       map.panTo(markerPositions[0]);
       map.setZoom(15);
-      return undefined;
+      return;
     }
 
     const bounds = new google.maps.LatLngBounds();
-    markerPositions.forEach((position) => bounds.extend(position));
-    map.fitBounds(bounds, 56);
 
-    const listener = google.maps.event.addListenerOnce(map, 'idle', () => {
-      if ((map.getZoom() ?? 0) > 16) map.setZoom(16);
-    });
+    markerPositions.forEach(position => bounds.extend(position));
 
-    return () => google.maps.event.removeListener(listener);
-  }, [map, positions]);
+  }, [map, spots]);
 
-  return spots.map((spot) => {
-    const position = positions[spot.id];
-    if (!position) return null;
-
-    return (
-      <AdvancedMarker
-        key={spot.id}
-        position={position}
-        title={`${spot.name} — ${spot.material}`}
-        onClick={() => onSelect(spot.id)}
-        zIndex={selectedId === spot.id ? 2 : 1}
-      >
-        <Pin
-          background={selectedId === spot.id ? '#15803d' : '#22c55e'}
-          borderColor="#166534"
-          glyphColor="#ffffff"
-        />
-      </AdvancedMarker>
-    );
-  });
+  return (
+    <>
+      {spots
+        .filter(s => s.latitude != null && s.longitude != null)
+        .map(spot => (
+          <AdvancedMarker
+            key={spot.id}
+            position={{
+              lat: Number(spot.latitude),
+              lng: Number(spot.longitude),
+            }}
+            title={`${spot.name} — ${spot.material}`}
+            onClick={() => onSelect(spot.id)}
+            zIndex={selectedId === spot.id ? 2 : 1}
+          >
+            <Pin
+              background={selectedId === spot.id ? "#15803d" : "#22c55e"}
+              borderColor="#166534"
+              glyphColor="#ffffff"
+            />
+          </AdvancedMarker>
+        ))}
+    </>
+  );
 }
 
 function createEditForm(site) {
@@ -404,7 +239,8 @@ export default function MapScreen() {
   const renderSpotCard = (site, isOwner) => {
     const expanded = selectedId === site.id;
     const isEditing = editingId === site.id;
-    const distanceKm = getDistanceKm(site.location);
+    // Distance calculation is nn hold
+    const distanceKm = null;
     const isBusy = busyId === site.id;
 
     return (

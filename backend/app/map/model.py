@@ -17,7 +17,15 @@ class ResourceSpot(db.Model):
     quantity = db.Column(db.Integer, nullable=True)
     description = db.Column(db.Text, nullable=True)
 
+    # Backup fields for location data, in case we need to store them separately from the geospatial point.   
+    # location_text = db.Column(db.String(255), nullable=False, index=True)
+    # permission_note = db.Column(db.String(255), nullable=True)
+    
     location_text = db.Column(db.String(255), nullable=False, index=True)
+
+    latitude = db.Column(db.Float, nullable=True)
+    longitude = db.Column(db.Float, nullable=True)
+
     permission_note = db.Column(db.String(255), nullable=True)
 
     image_path = db.Column(db.String(255), nullable=True)
