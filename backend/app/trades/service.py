@@ -79,6 +79,18 @@ def update_trade(trade_id, owner_id, *, fields, image_file):
 
     return save_trade(trade)
 
+def delete_trade(trade_id, owner_id):
+    trade = get_trade(trade_id)
+
+    if trade.owner_id != owner_id:
+        raise ForbiddenError("Only the trade owner can delete this trade.")
+
+    if trade.status == TradeStatus.DELETED:
+        raise ValidationError("Trade has already been deleted.")
+
+    trade.status = TradeStatus.DELETED
+
+    return save_trade(trade)
 
 def list_browse(current_user_id, *, category=None, location=None):
     return repo_list_browse(exclude_owner_id=current_user_id, category=category, location=location).all()

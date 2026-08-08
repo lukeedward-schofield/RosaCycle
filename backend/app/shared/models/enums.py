@@ -10,6 +10,7 @@ class TradeStatus(str, enum.Enum):
     OPEN = "open"
     RESERVED = "reserved"
     COMPLETED = "completed"
+    DELETED = "deleted"
 
 
 class OfferStatus(str, enum.Enum):

@@ -134,6 +134,7 @@ export async function updateTrade(id, fields, imageFile) {
 
 export async function assessTradePhoto(imageFile) {
     const form = buildFormData({}, imageFile);
+    form.append("image", imageFile)
 
     return apiFetch("/trades/assess-photo", {
         method: "POST",

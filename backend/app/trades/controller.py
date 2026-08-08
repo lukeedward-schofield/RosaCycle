@@ -7,6 +7,7 @@ from app.trades.service import (
     list_browse,
     list_mine,
     update_trade as update_trade_service,
+    delete_trade as delete_trade_service
 )
 from app.trades.ai_service import assess_trade_photo
 
@@ -60,3 +61,14 @@ def update_trade(trade_id):
         image_file=request.files.get("image"),
     )
     return serialize_trade(trade), 200
+
+def delete_trade(trade_id):
+    trade = delete_trade_service(
+        trade_id,
+        g.current_user.id,
+    )
+
+    return {
+        "success": True,
+        "message": "Trade deleted successfully.",
+    }, 200
