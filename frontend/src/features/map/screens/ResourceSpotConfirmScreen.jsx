@@ -27,7 +27,8 @@ export default function ResourceSpotConfirmScreen() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
   const [scanning, setScanning] = useState(false);
-
+  const [locating, setLocating] = useState(true);
+  const [locationError, setLocationError] = useState(false);
   const imageFile = getPendingCapture();
   const previewUrl = imageFile ? URL.createObjectURL(imageFile) : null;
   useEffect(() => {
@@ -64,18 +65,23 @@ export default function ResourceSpotConfirmScreen() {
   useEffect(() => {
     if (!navigator.geolocation) {
       console.error("Geolocation is not supported.");
+      setLocating(false);
+      setLocationError(true);
       return;
     }
 
   navigator.geolocation.getCurrentPosition(
     (position) => {
-      console.log("GPS SUCCESS:", position.coords);
+      // Remove For Debugging: console.log("GPS SUCCESS:", position.coords);
 
       setLatitude(position.coords.latitude);
       setLongitude(position.coords.longitude);
+      setLocating(false);
     },
     (error) => {
       console.error("GPS ERROR:", error);
+      setLocating(false);
+      setLocationError(true);
     },
     {
       enableHighAccuracy: true,
@@ -203,13 +209,20 @@ export default function ResourceSpotConfirmScreen() {
         </div>
 
         <div>
-          <label className={labelClass}>Location</label>
-          <input
-            className={inputClass}
-            value={locationText}
-            onChange={(e) => setLocationText(e.target.value)}
-            placeholder="e.g. Tagapo, Santa Rosa, Laguna"
-          />
+         <label className={labelClass}>Location</label>
+         <input
+           className={inputClass}
+           value={locationText}
+           onChange={(e) => setLocationText(e.target.value)}
+           placeholder="e.g. Tagapo, Santa Rosa, Laguna"
+           />
+          {locating && <p className="text-xs text-gray-400 mt-1">📍 Getting your GPS location...</p>}
+          {!locating && !locationError && latitude != null && (
+         <p className="text-xs text-green-600 mt-1">📍 Location captured</p>
+          )}
+          {!locating && locationError && (
+           <p className="text-xs text-amber-600 mt-1">📍 Couldn't get GPS — pin will use the typed address only</p>
+         )}
         </div>
 
         <div>
