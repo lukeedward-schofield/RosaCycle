@@ -34,3 +34,4 @@ class NotificationType(str, enum.Enum):
     OFFER_RECEIVED = "offer_received"
     OFFER_ACCEPTED = "offer_accepted"
     OFFER_DECLINED = "offer_declined"
+    TRADE_DELETED = "trade_deleted"

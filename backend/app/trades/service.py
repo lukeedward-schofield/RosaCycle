@@ -1,4 +1,4 @@
-from app.shared.models.enums import TradeStatus, TradingForType
+from app.shared.models.enums import NotificationType, TradeStatus, TradingForType
 from app.trades.model import Trade
 from app.trades.repository import (
     create_trade as create_trade_row,
@@ -7,6 +7,9 @@ from app.trades.repository import (
     list_mine as repo_list_mine,
     save_trade,
 )
+
+from app.shared.notification.service import notify
+
 from app.shared.utils.errors import ForbiddenError, NotFoundError, ValidationError
 from app.shared.utils.file_storage import save_image
 
@@ -88,9 +91,23 @@ def delete_trade(trade_id, owner_id):
     if trade.status == TradeStatus.DELETED:
         raise ValidationError("Trade has already been deleted.")
 
-    trade.status = TradeStatus.DELETED
+    offers = trade.offers.all()
 
-    return save_trade(trade)
+    trade.status = TradeStatus.DELETED
+    save_trade(trade)
+
+    for offer in offers:
+        notify(
+            recipient_id=offer.offerer_id,
+            type=NotificationType.TRADE_DELETED,
+            title="Trade deleted",
+            body=f'The trade "{trade.item_name}" has been deleted by the owner.',
+            trade_id=trade.id,
+            offer_id=offer.id,
+        )
+
+    return trade
+
 
 def list_browse(current_user_id, *, category=None, location=None):
     return repo_list_browse(exclude_owner_id=current_user_id, category=category, location=location).all()
