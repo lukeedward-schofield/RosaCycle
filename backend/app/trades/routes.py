@@ -38,7 +38,13 @@ def create_trade():
 def update_trade(trade_id):
     return trade_controller.update_trade(trade_id)
 
+@trade_bp.delete("/<trade_id>")
+@require_auth
+def delete_trade(trade_id):
+    return trade_controller.delete_trade(trade_id)
+
 @trade_bp.post("/assess-photo")
 @require_auth
 def assess_trade_route():
     return assess_trade()
+

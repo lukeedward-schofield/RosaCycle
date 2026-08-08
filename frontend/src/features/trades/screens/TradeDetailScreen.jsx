@@ -7,7 +7,7 @@ import StatusPill from '@/shared/components/common/StatusPill';
 import PrimaryButton from '@/shared/components/common/PrimaryButton';
 import EcoImpactBox from '@/features/trades/components/trade/EcoImpactBox';
 import { formatTradingFor, getTradeStatus } from '@/shared/utils/tradeFormat';
-import { fetchTradeById, fetchOffersForTrade, acceptOffer, declineOffer, fetchUserRatings } from '@/shared/services/api';
+import { fetchTradeById, fetchOffersForTrade, acceptOffer, declineOffer, fetchUserRatings, deleteTrade } from '@/shared/services/api';
 
 export default function TradeDetailScreen() {
   const { id } = useParams();
@@ -24,6 +24,7 @@ export default function TradeDetailScreen() {
   const [error, setError] = useState('');
   const [decidingOfferId, setDecidingOfferId] = useState(null);
   const [posterRating, setPosterRating] = useState(null);
+  const [showActions, setShowActions] = useState(false);
 
   const loadTrade = () => {
     setLoading(true);
@@ -72,6 +73,28 @@ export default function TradeDetailScreen() {
       cancelled = true;
     };
   }, [trade?.posterId]);
+
+  const handleDelete = async () => {
+    try {
+      await deleteTrade(trade.id);
+
+      navigate("/trades?tab=mine");
+    }catch(error){
+      console.error("Failed to delete trade: ", error);
+      setError(error.message || "Could not delete this trade");
+    }
+  };
+
+  const handleDeleteClick = async () => {
+    const confirmed = window.confirm(
+      "Are you sure you want to delete this trade?"
+    );
+
+    if(!confirmed) return;
+
+    await handleDelete();
+  };
+
 
   const decide = async (offerId, action) => {
     if (decidingOfferId) return;
@@ -146,13 +169,33 @@ export default function TradeDetailScreen() {
             <span><span className="font-semibold">{trade.quantity}</span> quantity</span>
           </div>
           {isOwner && (
-            <button
-              onClick={() => navigate(`/trades/${trade.id}/edit`)}
-              aria-label="Edit Listing"
-              className="p-1 -mr-1 text-gray-400 active:scale-95 transition-transform"
-            >
-              <MoreVertical size={20} />
-            </button>
+            <div className="relative">
+              <button
+                onClick={() => setShowActions((prev) => !prev)}
+                aria-label="Trade actions"
+                className="p-1 -mr-1 text-gray-400 active:scale-95 transition-transform"
+              >
+                <MoreVertical size={20} />
+              </button>
+
+              {showActions && (
+                <div className="absolute right-0 top-8 z-10 w-40 bg-white border border-gray-200 rounded-xl shadow-lg py-1">
+                  <button
+                    onClick={() => navigate(`/trades/${trade.id}/edit`)}
+                    className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
+                  >
+                    Edit Trade
+                  </button>
+
+                  <button
+                    onClick={handleDeleteClick}
+                    className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-gray-50"
+                  >
+                    Delete Trade
+                  </button>
+                </div>
+              )}
+            </div>
           )}
         </div>
 
