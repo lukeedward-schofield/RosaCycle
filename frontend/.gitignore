@@ -21,3 +21,7 @@ coverage/
 
 # VS Code
 .vscode/
+
+repomix-output-frontend.xml
+
+repomix-output-backend.xml

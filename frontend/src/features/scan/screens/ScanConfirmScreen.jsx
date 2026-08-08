@@ -57,6 +57,7 @@ export default function ScanConfirmScreen() {
     const assess = async () => {
         try {
             const result = await assessTradePhoto(imageFile);
+            console.log('AI ASSESSMENT RESULT:', result);
 
             if (cancelled) return;
 
@@ -69,6 +70,20 @@ export default function ScanConfirmScreen() {
                 weightKg: result.weightKg,
                 quantity: result.quantity,
             });
+
+            const detectedValues = {
+                ...BLANK_VALUES,
+                itemName: result.itemName,
+                category: result.category,
+                material: result.material,
+                description: result.description,
+                weightKg: result.weightKg,
+                quantity: result.quantity,
+            };
+
+            console.log('VALUES TO FORM:', detectedValues);
+
+            setValues(detectedValues);
 
         } catch (err) {
 
