@@ -132,6 +132,12 @@ export async function updateTrade(id, fields, imageFile) {
   return apiFetch(`/trades/${id}`, { method: 'PATCH', form });
 }
 
+export async function deleteTrade(id) {
+  return apiFetch(`/trades/${id}`, {
+    method: 'DELETE',
+  });
+}
+
 export async function assessTradePhoto(imageFile) {
     const form = buildFormData({}, imageFile);
     form.append("image", imageFile)
@@ -141,6 +147,8 @@ export async function assessTradePhoto(imageFile) {
         form,
     });
 }
+
+
 
 
 
