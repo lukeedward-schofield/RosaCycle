@@ -3,7 +3,7 @@ import os
 import uuid
 
 from flask import current_app
-from PIL import Image
+from PIL import Image, UnidentifiedImageError
 from werkzeug.utils import secure_filename
 
 ALLOWED_EXTENSIONS = {"jpg", "jpeg", "png", "webp"}
@@ -27,7 +27,17 @@ def save_image(file_storage, subfolder):
 
         raise ValidationError("Unsupported image type. Use JPEG, PNG, or WEBP.")
 
-    image = Image.open(file_storage.stream)
+    try:
+        # Multipart streams are not guaranteed to be positioned at byte 0 if
+        # another layer has inspected them. Always rewind before Pillow reads.
+        file_storage.stream.seek(0)
+        image = Image.open(file_storage.stream)
+        image.load()
+    except (UnidentifiedImageError, OSError, ValueError):
+        from app.shared.utils.errors import ValidationError
+
+        raise ValidationError("Uploaded file is not a valid image.")
+
     image = image.convert("RGB") if ext in ("jpg", "jpeg") else image.copy()
 
     # Strip EXIF (including GPS tags) by re-saving pixel data only.

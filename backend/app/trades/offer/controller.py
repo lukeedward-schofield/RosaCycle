@@ -4,6 +4,7 @@ from app.trades.offer.schema import serialize_offer
 from app.trades.offer.service import (
     accept_offer as accept_offer_service,
     decline_offer as decline_offer_service,
+    delete_offer as delete_offer_service,
     list_by_trade,
     list_received,
     list_sent,
@@ -34,6 +35,14 @@ def accept_offer(offer_id):
 def decline_offer(offer_id):
     offer = decline_offer_service(offer_id, g.current_user.id)
     return serialize_offer(offer), 200
+
+
+def delete_offer(offer_id):
+    delete_offer_service(offer_id, g.current_user.id)
+    return {
+        "success": True,
+        "message": "Offer deleted successfully.",
+    }, 200
 
 
 def my_sent_offers():

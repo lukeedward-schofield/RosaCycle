@@ -6,7 +6,7 @@ import MaterialTag from '@/shared/components/common/MaterialTag';
 import StatusPill from '@/shared/components/common/StatusPill';
 import PrimaryButton from '@/shared/components/common/PrimaryButton';
 import EcoImpactBox from '@/features/trades/components/trade/EcoImpactBox';
-import { fetchTradeById, fetchMyOffers } from '@/shared/services/api';
+import { deleteOffer, fetchTradeById, fetchMyOffers } from '@/shared/services/api';
 
 /**
  * Read-only record of an offer you already sent — reached from Offer History.
@@ -19,6 +19,8 @@ export default function ViewOfferScreen() {
   const [trade, setTrade] = useState(null);
   const [offer, setOffer] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [deleting, setDeleting] = useState(false);
+  const [error, setError] = useState('');
 
   useEffect(() => {
     Promise.all([fetchTradeById(id).catch(() => null), fetchMyOffers()])
@@ -48,6 +50,27 @@ export default function ViewOfferScreen() {
   }
 
   const accepted = offer.status === 'accepted';
+  const pending = offer.status === 'pending';
+
+  const handleDeleteOffer = async () => {
+    if (deleting) return;
+
+    const confirmed = window.confirm(
+      'Delete this offer? The trade will become available for offers again.'
+    );
+    if (!confirmed) return;
+
+    setDeleting(true);
+    setError('');
+    try {
+      await deleteOffer(offer.id);
+      navigate('/trades?tab=offers');
+    } catch (err) {
+      setError(err.message || 'Could not delete this offer.');
+    } finally {
+      setDeleting(false);
+    }
+  };
 
   return (
     <div className="pb-10">
@@ -91,6 +114,8 @@ export default function ViewOfferScreen() {
           <StatusPill status={offer.status} />
         </div>
 
+        {error && <p className="text-center text-sm text-red-500">{error}</p>}
+
         {accepted ? (
           <PrimaryButton onClick={() => navigate(`/trades/${offer.tradeId}/messages`)}>
             <span className="flex items-center justify-center gap-2">
@@ -99,9 +124,21 @@ export default function ViewOfferScreen() {
             </span>
           </PrimaryButton>
         ) : (
-          <p className="text-center text-sm text-gray-400">
-            Waiting for {trade?.posterName || 'the poster'} to respond.
-          </p>
+          <>
+            <p className="text-center text-sm text-gray-400">
+              Waiting for {trade?.posterName || 'the poster'} to respond.
+            </p>
+            {pending && (
+              <button
+                type="button"
+                onClick={handleDeleteOffer}
+                disabled={deleting}
+                className="w-full py-3.5 rounded-xl border border-red-200 text-red-600 font-semibold transition-colors hover:bg-red-50 active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {deleting ? 'Deleting Offer...' : 'Delete Offer'}
+              </button>
+            )}
+          </>
         )}
       </div>
     </div>

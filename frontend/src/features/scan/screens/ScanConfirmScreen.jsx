@@ -31,6 +31,7 @@ export default function ScanConfirmScreen() {
   const [assessing, setAssessing] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
+  const [imageRejected, setImageRejected] = useState(false);
 
   const imageFile = getPendingCapture();
 
@@ -62,6 +63,23 @@ export default function ScanConfirmScreen() {
             if (cancelled) return;
             
             const assessment = result.assessment;
+
+            if (!assessment) {
+                throw new Error("AI assessment was unavailable.");
+            }
+
+            if (assessment.isRelevant === false) {
+                setImageRejected(true);
+                setValues(BLANK_VALUES);
+                setError(
+                    context === 'posting'
+                        ? 'This photo does not appear to show a reusable or tradeable item. Please retake the photo.'
+                        : 'This photo does not appear to show an item that can be offered for trade. Please retake the photo.'
+                );
+                return;
+            }
+
+            setImageRejected(false);
 
             const detectedValues = {
                 ...BLANK_VALUES,
@@ -102,7 +120,7 @@ export default function ScanConfirmScreen() {
   }, [imageFile]);
 
   const canSubmit =
-    context === 'posting'
+    !imageRejected && (context === 'posting'
       ? Boolean(
           values.itemName?.trim() &&
             values.category?.trim() &&
@@ -110,10 +128,15 @@ export default function ScanConfirmScreen() {
             values.quantity &&
             values.currentLocation?.trim()
         )
-      : Boolean(values.itemName?.trim() && values.category?.trim() && values.material?.trim());
+      : Boolean(values.itemName?.trim() && values.category?.trim() && values.material?.trim()));
 
 
 
+
+  const handleRetakeRejectedPhoto = () => {
+    clearPendingCapture();
+    navigate(-1);
+  };
 
   const handlePrimaryAction = async () => {
     if (!canSubmit || submitting) return;
@@ -191,39 +214,51 @@ export default function ScanConfirmScreen() {
 
               <>
 
-                  <AIDetectedForm
-                      context={context}
-                      values={values}
-                      onChange={setValues}
-                  />
+                  {imageRejected ? (
+                      <div className="space-y-4">
+                          <div className="rounded-xl border border-red-200 bg-red-50 p-4">
+                              <p className="font-semibold text-red-700">Photo not accepted</p>
+                              <p className="mt-1 text-sm text-red-600">{error}</p>
+                          </div>
+                          <PrimaryButton onClick={handleRetakeRejectedPhoto}>
+                              Retake Photo
+                          </PrimaryButton>
+                      </div>
+                  ) : (
+                      <>
+                          <AIDetectedForm
+                              context={context}
+                              values={values}
+                              onChange={setValues}
+                          />
 
-                  {error && (
-                      <p className="text-sm text-red-500">
-                          {error}
-                      </p>
+                          {error && (
+                              <p className="text-sm text-red-500">
+                                  {error}
+                              </p>
+                          )}
+
+                          <div className="space-y-3">
+                              <PrimaryButton
+                                  onClick={handlePrimaryAction}
+                                  disabled={!canSubmit || submitting || assessing}
+                              >
+                                  {submitting
+                                      ? "Submitting..."
+                                      : context === "posting"
+                                          ? "Create Trade"
+                                          : "Send Offer"}
+                              </PrimaryButton>
+
+                              <button
+                                  onClick={() => navigate(-1)}
+                                  className="w-full text-center text-sm text-gray-500 font-medium"
+                              >
+                                  Retake Photo
+                              </button>
+                          </div>
+                      </>
                   )}
-
-                  <div className="space-y-3">
-
-                      <PrimaryButton
-                          onClick={handlePrimaryAction}
-                          disabled={!canSubmit || submitting || assessing}
-                      >
-                          {submitting
-                              ? "Submitting..."
-                              : context === "posting"
-                                  ? "Create Trade"
-                                  : "Send Offer"}
-                      </PrimaryButton>
-
-                      <button
-                          onClick={() => navigate(-1)}
-                          className="w-full text-center text-sm text-gray-500 font-medium"
-                      >
-                          Retake Photo
-                      </button>
-
-                  </div>
 
               </>
 

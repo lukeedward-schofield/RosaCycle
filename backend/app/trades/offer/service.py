@@ -2,6 +2,7 @@ from app.shared.models.enums import NotificationType, OfferStatus, TradeStatus, 
 from app.trades.offer.model import Offer
 from app.trades.offer.repository import (
     add_offer,
+    delete_offer as repo_delete_offer,
     get_offer_by_id,
     list_by_trade as repo_list_by_trade,
     list_received as repo_list_received,
@@ -133,6 +134,22 @@ def decline_offer(offer_id, caller_id):
         offer_id=offer.id,
     )
     return offer
+
+
+def delete_offer(offer_id, caller_id):
+    offer = get_offer_by_id(offer_id)
+    if offer is None:
+        raise NotFoundError("Offer not found.")
+    if offer.offerer_id != caller_id:
+        raise ForbiddenError("Only the offerer can delete this offer.")
+    if offer.status != OfferStatus.PENDING:
+        raise ConflictError("Only pending offers can be deleted.")
+
+    trade = offer.trade
+    if trade.status == TradeStatus.RESERVED:
+        trade.status = TradeStatus.OPEN
+
+    repo_delete_offer(offer)
 
 
 def list_by_trade(trade_id):
