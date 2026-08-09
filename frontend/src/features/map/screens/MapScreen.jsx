@@ -1,5 +1,5 @@
 import { Component, useEffect, useMemo, useRef, useState } from 'react';
-import { ChevronDown } from 'lucide-react';
+import { ChevronDown, X } from 'lucide-react';
 import { APIProvider, AdvancedMarker, Map, Pin, useMap, } from '@vis.gl/react-google-maps';
 import Header from '@/shared/components/layout/Header';
 import BottomNav from '@/shared/components/layout/BottomNav';
@@ -89,8 +89,80 @@ class MapErrorBoundary extends Component {
   }
 }
 
-function ResourceSpotMarkers({ spots, selectedId, onSelect }) {
+const MARKER_OVERLAP_PX = 44;
+const MAP_TILE_SIZE = 256;
+
+function latLngToPixel(position, zoom) {
+  const sinLat = Math.sin((position.lat * Math.PI) / 180);
+  const clampedSinLat = Math.min(Math.max(sinLat, -0.9999), 0.9999);
+  const scale = MAP_TILE_SIZE * (2 ** zoom);
+
+  return {
+    x: scale * (0.5 + position.lng / 360),
+    y:
+      scale *
+      (0.5 - Math.log((1 + clampedSinLat) / (1 - clampedSinLat)) / (4 * Math.PI)),
+  };
+}
+
+function buildMarkerClusters(markerSpots, zoom) {
+  const items = markerSpots.map((item) => ({
+    ...item,
+    pixel: latLngToPixel(item.position, zoom),
+  }));
+  const visited = new Set();
+  const clusters = [];
+
+  items.forEach((item, startIndex) => {
+    if (visited.has(startIndex)) return;
+
+    const queue = [startIndex];
+    const memberIndexes = [];
+    visited.add(startIndex);
+
+    while (queue.length > 0) {
+      const currentIndex = queue.shift();
+      const current = items[currentIndex];
+      memberIndexes.push(currentIndex);
+
+      items.forEach((candidate, candidateIndex) => {
+        if (visited.has(candidateIndex)) return;
+
+        const dx = current.pixel.x - candidate.pixel.x;
+        const dy = current.pixel.y - candidate.pixel.y;
+        if (Math.hypot(dx, dy) <= MARKER_OVERLAP_PX) {
+          visited.add(candidateIndex);
+          queue.push(candidateIndex);
+        }
+      });
+    }
+
+    const members = memberIndexes.map((index) => markerSpots[index]);
+    const position = {
+      lat: members.reduce((total, member) => total + member.position.lat, 0) / members.length,
+      lng: members.reduce((total, member) => total + member.position.lng, 0) / members.length,
+    };
+    const key = members
+      .map(({ spot }) => String(spot.id))
+      .sort()
+      .join('|');
+
+    clusters.push({ key, members, position });
+  });
+
+  return clusters;
+}
+
+function ResourceSpotMarkers({
+  spots,
+  selectedId,
+  activeClusterKey,
+  onSelect,
+  onClusterOpen,
+  onClusterClose,
+}) {
   const map = useMap();
+  const [zoom, setZoom] = useState(14);
   const markerSpots = useMemo(
     () =>
       spots
@@ -98,6 +170,27 @@ function ResourceSpotMarkers({ spots, selectedId, onSelect }) {
         .filter(({ position }) => position !== null),
     [spots],
   );
+  const clusters = useMemo(() => buildMarkerClusters(markerSpots, zoom), [markerSpots, zoom]);
+
+  useEffect(() => {
+    if (!map) return undefined;
+
+    const syncZoom = () => setZoom(map.getZoom() ?? 14);
+    syncZoom();
+    const listener = map.addListener('zoom_changed', syncZoom);
+
+    return () => listener.remove();
+  }, [map]);
+
+  useEffect(() => {
+    if (!activeClusterKey) return;
+    const clusterStillExists = clusters.some(
+      (cluster) => cluster.key === activeClusterKey && cluster.members.length > 1,
+    );
+    if (!clusterStillExists) {
+      onClusterClose?.();
+    }
+  }, [activeClusterKey, clusters, onClusterClose]);
 
   useEffect(() => {
     if (!map || markerSpots.length !== 1) return;
@@ -110,21 +203,52 @@ function ResourceSpotMarkers({ spots, selectedId, onSelect }) {
 
   return (
     <>
-      {markerSpots.map(({ spot, position }) => (
-        <AdvancedMarker
-          key={spot.id}
-          position={position}
-          title={`${spot.name} — ${spot.material}`}
-          onClick={() => onSelect(spot.id)}
-          zIndex={selectedId === spot.id ? 2 : 1}
-        >
-          <Pin
-            background={selectedId === spot.id ? '#15803d' : '#22c55e'}
-            borderColor="#166534"
-            glyphColor="#ffffff"
-          />
-        </AdvancedMarker>
-      ))}
+      {clusters.map((cluster) => {
+        const isGroup = cluster.members.length > 1;
+        const hasSelectedSpot = cluster.members.some(({ spot }) => spot.id === selectedId);
+
+        if (!isGroup) {
+          const [{ spot, position }] = cluster.members;
+          return (
+            <AdvancedMarker
+              key={cluster.key}
+              position={position}
+              title={`${spot.name} — ${spot.material}`}
+              onClick={() => onSelect(spot.id)}
+              zIndex={selectedId === spot.id ? 3 : 1}
+            >
+              <Pin
+                background={selectedId === spot.id ? '#15803d' : '#22c55e'}
+                borderColor="#166534"
+                glyphColor="#ffffff"
+              />
+            </AdvancedMarker>
+          );
+        }
+
+        return (
+          <AdvancedMarker
+            key={cluster.key}
+            position={cluster.position}
+            title={`${cluster.members.length} resource spots here`}
+            onClick={() => {
+              onClusterOpen?.(cluster);
+            }}
+            zIndex={activeClusterKey === cluster.key || hasSelectedSpot ? 4 : 2}
+          >
+            <Pin
+              background={
+                activeClusterKey === cluster.key || hasSelectedSpot ? '#15803d' : '#22c55e'
+              }
+              borderColor="#166534"
+              glyphColor="#ffffff"
+              glyph={String(cluster.members.length)}
+              scale={1.15}
+            />
+          </AdvancedMarker>
+        );
+      })}
+
     </>
   );
 }
@@ -144,6 +268,7 @@ function createEditForm(site) {
 export default function MapScreen() {
   const { user } = useAuth();
   const [selectedId, setSelectedId] = useState(null);
+  const [openCluster, setOpenCluster] = useState(null);
   const [spots, setSpots] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -270,6 +395,18 @@ export default function MapScreen() {
     } finally {
       setBusyId(null);
     }
+  };
+
+  const handleClusterOpen = (cluster) => {
+    setOpenCluster({
+      key: cluster.key,
+      members: cluster.members.map(({ spot }) => spot),
+    });
+  };
+
+  const handleClusterSpotSelect = (spot) => {
+    setSelectedId(spot.id);
+    setOpenCluster(null);
   };
 
   const renderSpotCard = (site, isOwner) => {
@@ -511,13 +648,60 @@ export default function MapScreen() {
                 <ResourceSpotMarkers
                   spots={spots}
                   selectedId={selectedId}
+                  activeClusterKey={openCluster?.key ?? null}
                   onSelect={setSelectedId}
+                  onClusterOpen={handleClusterOpen}
+                  onClusterClose={() => setOpenCluster(null)}
                 />
               </Map>
             </APIProvider>
           </MapErrorBoundary>
         )}
       </div>
+
+      {openCluster && openCluster.members.length > 1 && (
+        <div className="px-4 pt-4">
+          <div className="rounded-xl border border-gray-200 bg-white shadow-sm overflow-hidden">
+            <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100">
+              <div>
+                <p className="text-sm font-semibold text-gray-900">
+                  {openCluster.members.length} Resource Spots here
+                </p>
+                <p className="text-xs text-gray-400 mt-0.5">Choose a spot to view its details.</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setOpenCluster(null)}
+                className="p-1.5 rounded-lg text-gray-400 hover:bg-gray-100 hover:text-gray-600"
+                aria-label="Close resource spot selector"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <div className="divide-y divide-gray-100">
+              {openCluster.members.map((spot) => (
+                <button
+                  key={spot.id}
+                  type="button"
+                  onClick={() => handleClusterSpotSelect(spot)}
+                  className="w-full px-4 py-3 text-left hover:bg-gray-50 flex items-center justify-between gap-3"
+                >
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium text-gray-900 truncate">{spot.name}</p>
+                    {spot.reporterName && (
+                      <p className="text-xs text-gray-400 mt-0.5 truncate">
+                        Posted by {spot.reporterName}
+                      </p>
+                    )}
+                  </div>
+                  <MaterialTag material={spot.material} />
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
 
       <div className="px-4 pt-4 space-y-5">
         {loading && <p className="text-center text-sm text-gray-400 py-8">Loading...</p>}
