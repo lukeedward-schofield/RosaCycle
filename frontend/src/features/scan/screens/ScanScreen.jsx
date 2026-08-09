@@ -3,7 +3,7 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import Header from '@/shared/components/layout/Header';
 import BottomNav from '@/shared/components/layout/BottomNav';
 import CameraViewfinder from '@/features/scan/components/CameraViewfinder';
-import { setPendingCapture } from '@/shared/lib/pendingCapture';
+import { setPendingCapture, clearPendingCapture } from '@/shared/lib/pendingCapture';
 
 /**
  * AI scan step for a Trade item — reached only from within the Trades flow
@@ -22,7 +22,18 @@ export default function ScanScreen() {
   const handleFileSelected = (file) => {
     console.log("FILE SELECTED: ", file)
     setPendingCapture(file);
-    setPreviewUrl(URL.createObjectURL(file));
+    setPreviewUrl((currentUrl) => {
+      if (currentUrl) URL.revokeObjectURL(currentUrl);
+      return URL.createObjectURL(file);
+    });
+  };
+
+  const handleRetake = () => {
+    clearPendingCapture();
+    setPreviewUrl((currentUrl) => {
+      if (currentUrl) URL.revokeObjectURL(currentUrl);
+      return null;
+    });
   };
 
   const goToConfirm = () => {
@@ -40,12 +51,8 @@ export default function ScanScreen() {
           onCapture={goToConfirm}
           onFileSelected={handleFileSelected}
           onFlip={() => {}}
+          onRetake={handleRetake}
         />
-        {previewUrl && (
-          <div className="absolute bottom-0 left-0 right-0 px-4 py-3 bg-white border-t border-gray-100">
-            <p className="text-sm text-gray-500 text-center">Photo captured. Tap shutter again to continue</p>
-          </div>
-        )}
       </div>
       <BottomNav />
     </div>
