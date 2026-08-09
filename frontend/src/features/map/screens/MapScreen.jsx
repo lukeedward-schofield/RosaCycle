@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { Component, useEffect, useMemo, useRef, useState } from 'react';
 import { ChevronDown } from 'lucide-react';
 import { APIProvider, AdvancedMarker, Map, Pin, useMap, } from '@vis.gl/react-google-maps';
 import Header from '@/shared/components/layout/Header';
@@ -32,63 +32,99 @@ const inputClass =
   'w-full bg-gray-100 rounded-lg px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-brand-500';
 const labelClass = 'text-xs font-semibold text-gray-500 mb-1 block';
 
-function ResourceSpotMarkers({ spots, selectedId, onSelect }) {
-  const map = useMap();
+function getSpotPosition(spot) {
+  if (
+    spot?.latitude == null ||
+    spot?.longitude == null ||
+    spot.latitude === '' ||
+    spot.longitude === ''
+  ) {
+    return null;
+  }
 
-   useEffect(() => {
-    console.log("Loaded spots:");
-    spots.forEach(spot => {
-      console.log(spot.name, spot.latitude, spot.longitude);
-    });
-  }, [spots]);
+  const lat = Number(spot.latitude);
+  const lng = Number(spot.longitude);
 
+  if (
+    !Number.isFinite(lat) ||
+    !Number.isFinite(lng) ||
+    lat < -90 ||
+    lat > 90 ||
+    lng < -180 ||
+    lng > 180
+  ) {
+    console.warn('[Maps] Ignoring resource spot with invalid coordinates:', spot.id);
+    return null;
+  }
 
-  useEffect(() => {
-    if (!map) return;
+  return { lat, lng };
+}
 
-    const markerPositions = spots
-      .filter(s => s.latitude != null && s.longitude != null)
-      .map(s => ({
-        lat: Number(s.latitude),
-        lng: Number(s.longitude),
-      }));
+class MapErrorBoundary extends Component {
+  constructor(props) {
+    super(props);
+    this.state = { hasError: false };
+  }
 
-    if (markerPositions.length === 0) return;
+  static getDerivedStateFromError() {
+    return { hasError: true };
+  }
 
-    if (markerPositions.length === 1) {
-      map.panTo(markerPositions[0]);
-      map.setZoom(15);
-      return;
+  componentDidCatch(error) {
+    console.error('[Maps] Google Map rendering failed:', error);
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="h-full flex items-center justify-center px-6 text-center">
+          <p className="text-sm text-red-500">
+            The map could not be displayed, but your resource spots are still available below.
+          </p>
+        </div>
+      );
     }
 
-    const bounds = new google.maps.LatLngBounds();
+    return this.props.children;
+  }
+}
 
-    markerPositions.forEach(position => bounds.extend(position));
+function ResourceSpotMarkers({ spots, selectedId, onSelect }) {
+  const map = useMap();
+  const markerSpots = useMemo(
+    () =>
+      spots
+        .map((spot) => ({ spot, position: getSpotPosition(spot) }))
+        .filter(({ position }) => position !== null),
+    [spots],
+  );
 
-  }, [map, spots]);
+  useEffect(() => {
+    if (!map || markerSpots.length !== 1) return;
+
+    // Keep the existing single-marker behavior, but only after the coordinates
+    // have been validated. Multiple markers stay on the normal Santa Rosa view.
+    map.panTo(markerSpots[0].position);
+    map.setZoom(15);
+  }, [map, markerSpots]);
 
   return (
     <>
-      {spots
-        .filter(s => s.latitude != null && s.longitude != null)
-        .map(spot => (
-          <AdvancedMarker
-            key={spot.id}
-            position={{
-              lat: Number(spot.latitude),
-              lng: Number(spot.longitude),
-            }}
-            title={`${spot.name} — ${spot.material}`}
-            onClick={() => onSelect(spot.id)}
-            zIndex={selectedId === spot.id ? 2 : 1}
-          >
-            <Pin
-              background={selectedId === spot.id ? "#15803d" : "#22c55e"}
-              borderColor="#166534"
-              glyphColor="#ffffff"
-            />
-          </AdvancedMarker>
-        ))}
+      {markerSpots.map(({ spot, position }) => (
+        <AdvancedMarker
+          key={spot.id}
+          position={position}
+          title={`${spot.name} — ${spot.material}`}
+          onClick={() => onSelect(spot.id)}
+          zIndex={selectedId === spot.id ? 2 : 1}
+        >
+          <Pin
+            background={selectedId === spot.id ? '#15803d' : '#22c55e'}
+            borderColor="#166534"
+            glyphColor="#ffffff"
+          />
+        </AdvancedMarker>
+      ))}
     </>
   );
 }
@@ -449,32 +485,37 @@ export default function MapScreen() {
         {!GOOGLE_MAPS_API_KEY ? (
           <div className="h-full flex items-center justify-center px-6 text-center">
             <p className="text-sm text-red-500">
-              Google Maps API key is missing. Check frontend/.env.local.
+              Google Maps API key is missing. Check VITE_GOOGLE_MAPS_API_KEY in the frontend environment.
             </p>
           </div>
         ) : (
-          <APIProvider apiKey={GOOGLE_MAPS_API_KEY}>
-            <Map
-              mapId="DEMO_MAP_ID"
-              defaultCenter={SANTA_ROSA_CENTER}
-              defaultZoom={14}
-              minZoom={13}
-              maxZoom={19}
-              restriction={{
-                latLngBounds: SANTA_ROSA_BOUNDS,
-                strictBounds: false,
-              }}
-              gestureHandling="greedy"
-              disableDefaultUI={false}
-              style={{ width: '100%', height: '100%' }}
+          <MapErrorBoundary>
+            <APIProvider
+              apiKey={GOOGLE_MAPS_API_KEY}
+              onError={(mapError) => console.error('[Maps] Google Maps API failed to load:', mapError)}
             >
-              <ResourceSpotMarkers
-                spots={spots}
-                selectedId={selectedId}
-                onSelect={setSelectedId}
-              />
-            </Map>
-          </APIProvider>
+              <Map
+                mapId="DEMO_MAP_ID"
+                defaultCenter={SANTA_ROSA_CENTER}
+                defaultZoom={14}
+                minZoom={13}
+                maxZoom={19}
+                restriction={{
+                  latLngBounds: SANTA_ROSA_BOUNDS,
+                  strictBounds: false,
+                }}
+                gestureHandling="greedy"
+                disableDefaultUI={false}
+                style={{ width: '100%', height: '100%' }}
+              >
+                <ResourceSpotMarkers
+                  spots={spots}
+                  selectedId={selectedId}
+                  onSelect={setSelectedId}
+                />
+              </Map>
+            </APIProvider>
+          </MapErrorBoundary>
         )}
       </div>
 
