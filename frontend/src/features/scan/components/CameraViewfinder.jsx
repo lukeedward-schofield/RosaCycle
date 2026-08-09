@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Upload, Circle, RefreshCw, AlertTriangle } from 'lucide-react';
+import { Upload, Circle, RefreshCw, AlertTriangle, RotateCcw, Check } from 'lucide-react';
 
 /**
  * Live camera viewfinder. Uses getUserMedia for a real in-page feed and
@@ -17,7 +17,7 @@ import { Upload, Circle, RefreshCw, AlertTriangle } from 'lucide-react';
  * Falls back to the gallery/file picker if camera permission is denied or no
  * camera is available, so the flow is never fully blocked.
  */
-export default function CameraViewfinder({ previewImage, boundingBox, onCapture, onFileSelected, onFlip }) {
+export default function CameraViewfinder({ previewImage, boundingBox, onCapture, onFileSelected, onFlip, onRetake }) {
   const videoRef = useRef(null);
   const streamRef = useRef(null);
   const galleryInputRef = useRef(null);
@@ -109,11 +109,7 @@ export default function CameraViewfinder({ previewImage, boundingBox, onCapture,
   };
 
   const handleShutterClick = () => {
-    if (previewImage) {
-      onCapture();
-    } else {
-      captureFrame();
-    }
+    captureFrame();
   };
 
   const handleFlip = () => {
@@ -162,22 +158,48 @@ export default function CameraViewfinder({ previewImage, boundingBox, onCapture,
         />
       )}
 
-      <div className="absolute bottom-0 left-0 right-0 flex items-center justify-between px-8 py-6 bg-gradient-to-t from-black/60 to-transparent">
-        <button onClick={openGallery} aria-label="Upload from gallery" className="text-white active:scale-90 transition-transform">
-          <Upload size={26} />
-        </button>
-        <button
-          onClick={handleShutterClick}
-          aria-label="Capture"
-          disabled={!previewImage && !isStreamReady}
-          className="active:scale-90 transition-transform disabled:opacity-40"
-        >
-          <Circle size={64} className="text-white" strokeWidth={2.5} />
-        </button>
-        <button onClick={handleFlip} aria-label="Flip camera" className="w-11 h-11 rounded-full bg-black/40 flex items-center justify-center text-white active:scale-90 transition-transform">
-          <RefreshCw size={20} />
-        </button>
-      </div>
+      {previewImage ? (
+        <div className="absolute bottom-16 left-0 right-0 p-4 bg-gradient-to-t from-black/80 via-black/50 to-transparent">
+          <div className="rounded-2xl bg-black/65 backdrop-blur-sm p-3">
+            <p className="text-white text-sm font-semibold text-center mb-3">Use this photo?</p>
+            <div className="grid grid-cols-2 gap-3">
+              <button
+                type="button"
+                onClick={onRetake}
+                className="h-11 rounded-xl border border-white/70 text-white font-semibold text-sm flex items-center justify-center gap-2 active:scale-[0.98] transition-transform"
+              >
+                <RotateCcw size={18} />
+                Retake
+              </button>
+              <button
+                type="button"
+                onClick={onCapture}
+                className="h-11 rounded-xl bg-brand-600 text-white font-semibold text-sm flex items-center justify-center gap-2 active:scale-[0.98] transition-transform"
+              >
+                <Check size={18} />
+                Use Photo
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : (
+         <div className="absolute bottom-20 left-0 right-0 flex items-center justify-between px-8 py-6 bg-gradient-to-t from-black/60 to-transparent">
+          <button onClick={openGallery} aria-label="Upload from gallery" className="text-white active:scale-90 transition-transform">
+            <Upload size={26} />
+          </button>
+          <button
+            onClick={handleShutterClick}
+            aria-label="Capture"
+            disabled={!isStreamReady}
+            className="active:scale-90 transition-transform disabled:opacity-40"
+          >
+            <Circle size={64} className="text-white" strokeWidth={2.5} />
+          </button>
+          <button onClick={handleFlip} aria-label="Flip camera" className="w-11 h-11 rounded-full bg-black/40 flex items-center justify-center text-white active:scale-90 transition-transform">
+            <RefreshCw size={20} />
+          </button>
+        </div>
+      )}
     </div>
   );
 }

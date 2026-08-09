@@ -26,6 +26,12 @@ class Trade(db.Model):
 
     status = db.Column(db.Enum(TradeStatus), nullable=False, default=TradeStatus.OPEN, index=True)
 
+    # Completion is intentionally a two-party flow. The owner requests completion,
+    # then the accepted offerer confirms it. If no confirmation arrives within
+    # three days, the backend treats the request as due and completes the trade.
+    completion_requested_at = db.Column(db.DateTime(timezone=True), nullable=True)
+    completed_at = db.Column(db.DateTime(timezone=True), nullable=True)
+
     created_at = db.Column(db.DateTime(timezone=True), default=utcnow, nullable=False)
     updated_at = db.Column(db.DateTime(timezone=True), default=utcnow, onupdate=utcnow, nullable=False)
 
@@ -37,10 +43,14 @@ class Trade(db.Model):
         return self.offers.count() > 0
 
     @property
-    def offer_accepted(self):
+    def accepted_offer(self):
         from app.shared.models.enums import OfferStatus
 
-        return self.offers.filter_by(status=OfferStatus.ACCEPTED).first() is not None
+        return self.offers.filter_by(status=OfferStatus.ACCEPTED).first()
+
+    @property
+    def offer_accepted(self):
+        return self.accepted_offer is not None
 
     conversation = db.relationship(
         "Conversation",

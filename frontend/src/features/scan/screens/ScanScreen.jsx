@@ -20,32 +20,29 @@ export default function ScanScreen() {
   const [previewUrl, setPreviewUrl] = useState(null);
 
   const handleFileSelected = (file) => {
-    console.log("FILE SELECTED: ", file)
     setPendingCapture(file);
     setPreviewUrl(URL.createObjectURL(file));
   };
 
+  const handleRetake = () => {
+    setPreviewUrl(null);
+  };
+
   const goToConfirm = () => {
-    console.log('GOING TO CONFIRM');
-    console.log('pending capture should exist');
     navigate('/trades/scan/confirm', { state: { context, tradeId } });
   };
 
   return (
-    <div className="h-screen flex flex-col overflow-hidden">
+    <div className="h-[100dvh] flex flex-col overflow-hidden">
       <Header title={context === 'posting' ? 'Post an Item' : 'Create Offer'} showBell={false} />
-      <div className="flex-1 relative min-h-0 pb-16">
+      <div className="flex-1 relative min-h-0 overflow-hidden">
         <CameraViewfinder
           previewImage={previewUrl}
           onCapture={goToConfirm}
           onFileSelected={handleFileSelected}
+          onRetake={handleRetake}
           onFlip={() => {}}
         />
-        {previewUrl && (
-          <div className="absolute bottom-0 left-0 right-0 px-4 py-3 bg-white border-t border-gray-100">
-            <p className="text-sm text-gray-500 text-center">Photo captured. Tap shutter again to continue</p>
-          </div>
-        )}
       </div>
       <BottomNav />
     </div>

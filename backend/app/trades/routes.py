@@ -2,9 +2,7 @@ from flask import Blueprint
 
 from app.trades import controller as trade_controller
 from app.auth.utils import require_auth
-from app.trades.controller import (
-    assess_trade,
-)
+from app.trades.controller import assess_trade
 
 trade_bp = Blueprint("trade", __name__, url_prefix="/trades")
 
@@ -38,13 +36,26 @@ def create_trade():
 def update_trade(trade_id):
     return trade_controller.update_trade(trade_id)
 
+
 @trade_bp.delete("/<trade_id>")
 @require_auth
 def delete_trade(trade_id):
     return trade_controller.delete_trade(trade_id)
 
+
+@trade_bp.post("/<trade_id>/completion/request")
+@require_auth
+def request_trade_completion(trade_id):
+    return trade_controller.request_trade_completion(trade_id)
+
+
+@trade_bp.post("/<trade_id>/completion/confirm")
+@require_auth
+def confirm_trade_completion(trade_id):
+    return trade_controller.confirm_trade_completion(trade_id)
+
+
 @trade_bp.post("/assess-photo")
 @require_auth
 def assess_trade_route():
     return assess_trade()
-

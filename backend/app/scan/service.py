@@ -16,18 +16,24 @@ BLOCKED_FINISH_REASONS = {
     "IMAGE_SAFETY",
 }
 
-TRADE_ASSESSMENT_PROMPT = """You are assisting a circular-economy trading app. Look at the photo of an item
-someone wants to trade and respond with ONLY a JSON object (no markdown) with these keys:
-"itemName" (short string), "category" (one of: Wood, Metal, Plastic, Fabric, Paper, E-waste, Mixed, Organic),
+TRADE_ASSESSMENT_PROMPT = """You are assisting a circular-economy trading app.
+Analyze the photo and respond with ONLY a JSON object (no markdown) with these keys:
+"isRelevant" (boolean), "itemName" (short string),
+"category" (one of: Wood, Metal, Plastic, Fabric, Paper, E-waste, Mixed, Organic),
 "material" (short free-text description, e.g. "Steel scrap"), "weightKg" (number, your best estimate),
-"confidence" (integer 0-100, your confidence in this assessment)."""
+"confidence" (integer 0-100, your confidence in this assessment).
 
-RESOURCE_SPOT_ASSESSMENT_PROMPT = RESOURCE_SPOT_ASSESSMENT_PROMPT = """
+Set "isRelevant" to true only when the photo clearly shows at least one physical reusable, recyclable, recoverable, or tradeable item/material.
+Set it to false for unrelated photos such as people/selfies, pets, scenery, rooms or surfaces with no clear item, screenshots, documents, text-only images, or images too unclear to identify an item/material.
+If false, return empty strings for itemName/category/material, weightKg 0, and confidence 0."""
+
+RESOURCE_SPOT_ASSESSMENT_PROMPT = """
 You are assisting a community resource-recovery app.
 
 Analyze the image and respond ONLY with valid JSON.
 
 {
+  "isRelevant": true,
   "name": "...",
   "material": "...",
   "weightKg": 0,
@@ -37,6 +43,10 @@ Analyze the image and respond ONLY with valid JSON.
 }
 
 Rules:
+
+- "isRelevant" must be true only when the photo clearly shows reusable, recyclable, recoverable, or discarded material worth reporting as a resource spot.
+- "isRelevant" must be false for unrelated photos such as people/selfies, pets, ordinary scenery, empty rooms/roads/ground with no visible recoverable material, screenshots, documents, text-only images, or images too unclear to identify recoverable material.
+- If "isRelevant" is false, return empty strings for name/material/description and 0 for weightKg/quantity/confidence.
 
 "name" should be a short title such as:
 "Pile of Cardboard"
@@ -61,6 +71,7 @@ Return ONLY JSON.
 """
 
 EMPTY_TRADE_RESULT = {
+    "isRelevant": None,
     "itemName": "",
     "category": "",
     "material": "",
@@ -69,9 +80,12 @@ EMPTY_TRADE_RESULT = {
 }
 
 EMPTY_SPOT_RESULT = {
+    "isRelevant": None,
+    "name": "",
     "material": "",
     "weightKg": None,
     "quantity": None,
+    "description": "",
     "confidence": 0,
 }
 
@@ -135,7 +149,7 @@ def assess_trade_photo(image_file):
         return {**EMPTY_TRADE_RESULT, **result, "blocked": False}
     except ContentBlockedError:
         current_app.logger.info("Gemini blocked a trade photo for content safety")
-        return {**EMPTY_TRADE_RESULT, "blocked": True}
+        return {**EMPTY_TRADE_RESULT, "isRelevant": False, "blocked": True}
 
     
     except Exception as e:
@@ -145,7 +159,7 @@ def assess_trade_photo(image_file):
         print("========================\n")
 
     return {
-        **EMPTY_SPOT_RESULT,
+        **EMPTY_TRADE_RESULT,
         "blocked": False,
     }
 
@@ -156,7 +170,7 @@ def assess_resource_spot_photo(image_file):
         return {**EMPTY_SPOT_RESULT, **result, "blocked": False}
     except ContentBlockedError:
         current_app.logger.info("Gemini blocked a resource spot photo for content safety")
-        return {**EMPTY_SPOT_RESULT, "blocked": True}
+        return {**EMPTY_SPOT_RESULT, "isRelevant": False, "blocked": True}
     except Exception:
         current_app.logger.exception("Gemini resource spot assessment failed")
         return {**EMPTY_SPOT_RESULT, "blocked": False}

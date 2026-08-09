@@ -13,8 +13,9 @@ export function formatTradingFor(tradingFor) {
   }
 }
 
-// Derives a trade's lifecycle status: Pending (open, whether or not it has an
-// offer yet awaiting your decision) -> Accepted (offer accepted, chat unlocked).
 export function getTradeStatus(trade) {
-  return trade.offerAccepted ? 'Accepted' : 'Pending';
+  if (trade?.status === 'completed') return 'Completed';
+  if (trade?.completion?.requestedAt) return 'Awaiting confirmation';
+  if (trade?.offerAccepted) return 'In progress';
+  return 'Pending';
 }

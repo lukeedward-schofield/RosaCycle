@@ -8,6 +8,7 @@ import {
   assessResourceSpotPhoto,
 } from '@/shared/services/api';
 import { getPendingCapture, clearPendingCapture } from '@/shared/lib/pendingCapture';
+import GpsLocationAutofill from '@/shared/components/location/GpsLocationAutofill';
 
 const inputClass =
   'w-full bg-gray-100 rounded-xl px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-brand-500';
@@ -26,6 +27,7 @@ export default function ResourceSpotConfirmScreen() {
   const [permissionNote, setPermissionNote] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
+  const [imageRejected, setImageRejected] = useState(false);
   const [scanning, setScanning] = useState(false);
   const [locating, setLocating] = useState(true);
   const [locationError, setLocationError] = useState(false);
@@ -41,6 +43,20 @@ export default function ResourceSpotConfirmScreen() {
       const result = await assessResourceSpotPhoto(imageFile);
       console.log("Gemini returned:", result);
 
+      if (result.isRelevant === false) {
+        setImageRejected(true);
+        setName("");
+        setMaterial("");
+        setWeightKg("");
+        setQuantity("");
+        setDescription("");
+        setError(
+          "This photo does not appear to show reusable or recoverable material for a resource spot. Please retake the photo."
+        );
+        return;
+      }
+
+      setImageRejected(false);
       setName(result.name || "");
       setMaterial(result.material || "");
       setWeightKg(result.weightKg?.toString() || "");
@@ -62,36 +78,39 @@ export default function ResourceSpotConfirmScreen() {
   scan();
 }, [imageFile]);
 
-  useEffect(() => {
-    if (!navigator.geolocation) {
-      console.error("Geolocation is not supported.");
-      setLocating(false);
-      setLocationError(true);
-      return;
-    }
+  const handleGpsLocation = ({
+    latitude: nextLatitude,
+    longitude: nextLongitude,
+    locationText: nextLocationText,
+    reverseGeocoded,
+  }) => {
+    const coordinateFallback = `${nextLatitude.toFixed(6)}, ${nextLongitude.toFixed(6)}`;
 
-  navigator.geolocation.getCurrentPosition(
-    (position) => {
-      // Remove For Debugging: console.log("GPS SUCCESS:", position.coords);
+    setLatitude(nextLatitude);
+    setLongitude(nextLongitude);
+    setLocationText((currentLocationText) => {
+      const currentLocation = currentLocationText.trim();
+      if (!currentLocation || (reverseGeocoded && currentLocation === coordinateFallback)) {
+        return nextLocationText;
+      }
+      return currentLocationText;
+    });
+    setLocating(false);
+    setLocationError(false);
+  };
 
-      setLatitude(position.coords.latitude);
-      setLongitude(position.coords.longitude);
-      setLocating(false);
-    },
-    (error) => {
-      console.error("GPS ERROR:", error);
-      setLocating(false);
-      setLocationError(true);
-    },
-    {
-      enableHighAccuracy: true,
-      timeout: 10000,
-      maximumAge: 0,
-    }
-  );
-}, []);
+  const handleGpsError = (gpsError) => {
+    console.error('GPS ERROR:', gpsError);
+    setLocating(false);
+    setLocationError(true);
+  };
 
-  const canSubmit = name.trim().length > 0 && material && locationText.trim().length > 0;
+  const canSubmit = !imageRejected && name.trim().length > 0 && material && locationText.trim().length > 0;
+
+  const handleRetakeRejectedPhoto = () => {
+    clearPendingCapture();
+    navigate(-1);
+  };
 
   const handleSubmit = async () => {
     if (!canSubmit || submitting) return;
@@ -127,6 +146,7 @@ export default function ResourceSpotConfirmScreen() {
 
   return (
     <div className="pb-10">
+      <GpsLocationAutofill onLocation={handleGpsLocation} onError={handleGpsError} />
       <Header onBack={() => navigate(-1)} title="Report Spot" />
 
       <div className="aspect-[4/3] bg-gray-200 flex items-center justify-center text-gray-400 text-sm overflow-hidden">
@@ -143,6 +163,16 @@ export default function ResourceSpotConfirmScreen() {
     🔍 AI is analyzing the image...
   </div>
 )}
+        {imageRejected ? (
+          <div className="space-y-4">
+            <div className="rounded-xl border border-red-200 bg-red-50 p-4">
+              <p className="font-semibold text-red-700">Photo not accepted</p>
+              <p className="mt-1 text-sm text-red-600">{error}</p>
+            </div>
+            <PrimaryButton onClick={handleRetakeRejectedPhoto}>Retake Photo</PrimaryButton>
+          </div>
+        ) : (
+          <>
         <div>
           <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-3">
             AI-Detected (editable)
@@ -244,6 +274,8 @@ export default function ResourceSpotConfirmScreen() {
             ? 'Reporting...'
             : 'Report Spot'}
         </PrimaryButton>
+          </>
+        )}
       </div>
     </div>
   );
