@@ -5,21 +5,27 @@ import SignInScreen from '@/features/auth/screens/SignInScreen';
 import SignUpScreen from '@/features/auth/screens/SignUpScreen';
 import ConfirmDetailsScreen from '@/features/auth/screens/ConfirmDetailsScreen';
 import EditProfileScreen from '@/features/profile/screens/EditProfileScreen';
+
+import NotificationsScreen from '@/features/notifications/screens/NotificationsScreen';
+
 import TradesScreen from '@/features/trades/screens/TradesScreen';
 import TradeDetailScreen from '@/features/trades/screens/TradeDetailScreen';
 import EditListingScreen from '@/features/trades/screens/EditListingScreen';
 import ViewOfferScreen from '@/features/trades/screens/ViewOfferScreen';
-import ScanScreen from '@/features/scan/screens/ScanScreen';
-import ScanConfirmScreen from '@/features/scan/screens/ScanConfirmScreen';
 import TradeCreatedScreen from '@/features/trades/screens/TradeCreatedScreen';
 import OfferSentScreen from '@/features/trades/screens/OfferSentScreen';
 import MessageThreadScreen from '@/features/trades/screens/MessageThreadScreen';
+import RateTraderScreen from '@/features/trades/screens/RateTraderScreen';
+import CreateTradeScreen from "@/features/trades/screens/CreateTradeScreen";
+
+import ScanScreen from '@/features/scan/screens/ScanScreen';
+import ScanConfirmScreen from '@/features/scan/screens/ScanConfirmScreen';
+
 import ResourceSpotScreen from '@/features/map/screens/ResourceSpotScreen';
 import ResourceSpotConfirmScreen from '@/features/map/screens/ResourceSpotConfirmScreen';
 import SpotReportedScreen from '@/features/map/screens/SpotReportedScreen';
 import MapScreen from '@/features/map/screens/MapScreen';
-import RateTraderScreen from '@/features/trades/screens/RateTraderScreen';
-import CreateTradeScreen from "@/features/trades/screens/CreateTradeScreen";
+
 
 // Gate for screens that require a signed-in user; bounces to /signin otherwise.
 function RequireAuth({ children }) {
@@ -49,6 +55,9 @@ export default function App() {
           <Route path="/signup" element={<SignUpScreen />} />
           <Route path="/confirm-details" element={<RequireAuth><ConfirmDetailsScreen /></RequireAuth>} />
           <Route path="/profile/edit" element={<RequireAuth><EditProfileScreen /></RequireAuth>} />
+
+          {/* Notifications*/}
+          <Route path="/notifications" element={<NotificationsScreen />} />
 
           {/* Trades (Browse + My Trades) */}
           <Route path="/trades" element={<RequireAuth><TradesScreen /></RequireAuth>} />
