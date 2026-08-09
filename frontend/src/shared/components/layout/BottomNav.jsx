@@ -18,7 +18,7 @@ export default function BottomNav() {
   const location = useLocation();
 
   return (
-    <nav className="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-[480px] bg-white border-t border-gray-100 flex items-stretch z-30">
+    <nav className="w-full max-w-[480px] mx-auto bg-white border-t border-gray-100 flex items-stretch z-30">
       {TABS.map(({ key, label, icon: Icon, path }) => {
         const isActive = location.pathname.startsWith(path);
         return (
