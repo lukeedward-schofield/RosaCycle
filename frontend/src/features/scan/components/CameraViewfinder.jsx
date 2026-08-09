@@ -159,7 +159,7 @@ export default function CameraViewfinder({ previewImage, boundingBox, onCapture,
       )}
 
       {previewImage ? (
-        <div className="absolute bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-black/80 via-black/50 to-transparent">
+        <div className="absolute bottom-16 left-0 right-0 p-4 bg-gradient-to-t from-black/80 via-black/50 to-transparent">
           <div className="rounded-2xl bg-black/65 backdrop-blur-sm p-3">
             <p className="text-white text-sm font-semibold text-center mb-3">Use this photo?</p>
             <div className="grid grid-cols-2 gap-3">
