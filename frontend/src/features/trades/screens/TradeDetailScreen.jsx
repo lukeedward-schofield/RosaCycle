@@ -300,13 +300,13 @@ export default function TradeDetailScreen() {
     );
   }
 
-  // Owner: item info stays fixed in place; only Received Offers scrolls.
+  // Owner: item info and Received Offers scroll together as one page.
   return (
-    <div className="h-screen flex flex-col overflow-hidden">
+    <div className="pb-10">
       <Header onBack={() => navigate(-1)} title="Items" />
-      <div className="shrink-0 relative">{itemInfo}</div>
+      <div className="relative">{itemInfo}</div>
 
-      <div className="flex-1 overflow-y-auto min-h-0 border-t border-gray-100 px-5 py-5">
+      <div className="border-t border-gray-100 px-5 py-5">
         <h2 className="font-bold text-gray-900 mb-3">Received Offers</h2>
         {error && <p className="text-sm text-red-500 mb-3">{error}</p>}
         {offers.length === 0 ? (

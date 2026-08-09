@@ -3,7 +3,7 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import Header from '@/shared/components/layout/Header';
 import BottomNav from '@/shared/components/layout/BottomNav';
 import CameraViewfinder from '@/features/scan/components/CameraViewfinder';
-import { setPendingCapture, clearPendingCapture } from '@/shared/lib/pendingCapture';
+import { setPendingCapture } from '@/shared/lib/pendingCapture';
 
 /**
  * AI scan step for a Trade item — reached only from within the Trades flow
@@ -20,38 +20,28 @@ export default function ScanScreen() {
   const [previewUrl, setPreviewUrl] = useState(null);
 
   const handleFileSelected = (file) => {
-    console.log("FILE SELECTED: ", file)
     setPendingCapture(file);
-    setPreviewUrl((currentUrl) => {
-      if (currentUrl) URL.revokeObjectURL(currentUrl);
-      return URL.createObjectURL(file);
-    });
+    setPreviewUrl(URL.createObjectURL(file));
   };
 
   const handleRetake = () => {
-    clearPendingCapture();
-    setPreviewUrl((currentUrl) => {
-      if (currentUrl) URL.revokeObjectURL(currentUrl);
-      return null;
-    });
+    setPreviewUrl(null);
   };
 
   const goToConfirm = () => {
-    console.log('GOING TO CONFIRM');
-    console.log('pending capture should exist');
     navigate('/trades/scan/confirm', { state: { context, tradeId } });
   };
 
   return (
-    <div className="h-screen flex flex-col overflow-hidden">
+    <div className="h-[100dvh] flex flex-col overflow-hidden">
       <Header title={context === 'posting' ? 'Post an Item' : 'Create Offer'} showBell={false} />
-      <div className="flex-1 relative min-h-0 pb-16">
+      <div className="flex-1 relative min-h-0 overflow-hidden">
         <CameraViewfinder
           previewImage={previewUrl}
           onCapture={goToConfirm}
           onFileSelected={handleFileSelected}
-          onFlip={() => {}}
           onRetake={handleRetake}
+          onFlip={() => {}}
         />
       </div>
       <BottomNav />
