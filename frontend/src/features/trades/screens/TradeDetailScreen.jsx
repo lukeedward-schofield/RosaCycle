@@ -7,7 +7,7 @@ import StatusPill from '@/shared/components/common/StatusPill';
 import PrimaryButton from '@/shared/components/common/PrimaryButton';
 import EcoImpactBox from '@/features/trades/components/trade/EcoImpactBox';
 import { formatTradingFor, getTradeStatus } from '@/shared/utils/tradeFormat';
-import { fetchTradeById, fetchOffersForTrade, acceptOffer, declineOffer, fetchUserRatings, deleteTrade } from '@/shared/services/api';
+import { fetchTradeById, fetchOffersForTrade, acceptOffer, declineOffer, sendOffer, fetchUserRatings, deleteTrade } from '@/shared/services/api';
 
 export default function TradeDetailScreen() {
   const { id } = useParams();
@@ -24,6 +24,7 @@ export default function TradeDetailScreen() {
   const [error, setError] = useState('');
   const [decidingOfferId, setDecidingOfferId] = useState(null);
   const [posterRating, setPosterRating] = useState(null);
+  const [claiming, setClaiming] = useState(false);
   const [showActions, setShowActions] = useState(false);
 
   const loadTrade = () => {
@@ -94,6 +95,33 @@ export default function TradeDetailScreen() {
 
     await handleDelete();
   };
+
+  const handleClaim = async () => {
+  if (claiming) return;
+
+  setClaiming(true);
+  setError('');
+
+  try {
+    await sendOffer(
+      trade.id,
+      {
+        itemName: trade.name,
+        category: trade.category,
+        material: trade.material,
+        weightKg: trade.weightKg,
+        description: trade.description,
+      },
+      null
+    );
+
+    await loadTrade();
+  } catch (err) {
+    setError(err.message || 'Could not claim this item.');
+  } finally {
+    setClaiming(false);
+  }
+};
 
 
   const decide = async (offerId, action) => {
@@ -226,16 +254,32 @@ export default function TradeDetailScreen() {
         {!isOwner && (
           <div className="space-y-3 pt-2">
             {trade.tradingFor?.type === 'nothing' ? (
-              // Free item — nothing to negotiate, so skip the offer flow entirely
-              // and go straight to messaging the poster to arrange pickup.
-              <PrimaryButton onClick={() => navigate(`/trades/${trade.id}/messages`)}>Message</PrimaryButton>
+              trade.status !== 'open' ? (
+                <p className="text-center text-sm text-gray-400 py-2">
+                  This item is no longer available.
+                </p>
+              ) : (
+                <PrimaryButton
+                  onClick={handleClaim}
+                  disabled={claiming}
+                >
+                  {claiming ? 'Claiming...' : 'Claim Item'}
+                </PrimaryButton>
+              )
             ) : trade.status !== 'open' ? (
               <p className="text-center text-sm text-gray-400 py-2">
                 This trade is no longer accepting offers.
               </p>
             ) : (
               <PrimaryButton
-                onClick={() => navigate('/trades/scan', { state: { context: 'bidding', tradeId: trade.id } })}
+                onClick={() =>
+                  navigate('/trades/scan', {
+                    state: {
+                      context: 'bidding',
+                      tradeId: trade.id
+                    }
+                  })
+                }
               >
                 Create Offer
               </PrimaryButton>
