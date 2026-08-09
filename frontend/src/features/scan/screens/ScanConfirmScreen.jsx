@@ -58,27 +58,19 @@ export default function ScanConfirmScreen() {
         try {
             const result = await assessTradePhoto(imageFile);
             console.log('AI ASSESSMENT RESULT:', result);
-
+            
             if (cancelled) return;
-
-            setValues({
-                ...BLANK_VALUES,
-                itemName: result.itemName,
-                category: result.category,
-                material: result.material,
-                description: result.description,
-                weightKg: result.weightKg,
-                quantity: result.quantity,
-            });
+            
+            const assessment = result.assessment;
 
             const detectedValues = {
                 ...BLANK_VALUES,
-                itemName: result.itemName,
-                category: result.category,
-                material: result.material,
-                description: result.description,
-                weightKg: result.weightKg,
-                quantity: result.quantity,
+                itemName: assessment.itemName,
+                category: assessment.category,
+                material: assessment.material,
+                description: assessment.description,
+                weightKg: assessment.weightKg,
+                quantity: assessment.quantity,
             };
 
             console.log('VALUES TO FORM:', detectedValues);
