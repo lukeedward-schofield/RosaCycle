@@ -183,19 +183,19 @@ export default function CameraViewfinder({ previewImage, boundingBox, onCapture,
           </div>
         </div>
       ) : (
-         <div className="absolute bottom-20 left-0 right-0 flex items-center justify-between px-8 py-6 bg-gradient-to-t from-black/60 to-transparent">
-          <button onClick={openGallery} aria-label="Upload from gallery" className="text-white active:scale-90 transition-transform">
+        <div className="absolute bottom-20 left-0 right-0 grid grid-cols-3 items-center px-8 py-6 bg-gradient-to-t from-black/60 to-transparent">
+          <button onClick={openGallery} aria-label="Upload from gallery" className="justify-self-start text-white active:scale-90 transition-transform">
             <Upload size={26} />
           </button>
           <button
             onClick={handleShutterClick}
             aria-label="Capture"
             disabled={!isStreamReady}
-            className="active:scale-90 transition-transform disabled:opacity-40"
+            className="justify-self-center active:scale-90 transition-transform disabled:opacity-40"
           >
             <Circle size={64} className="text-white" strokeWidth={2.5} />
           </button>
-          <button onClick={handleFlip} aria-label="Flip camera" className="w-11 h-11 rounded-full bg-black/40 flex items-center justify-center text-white active:scale-90 transition-transform">
+          <button onClick={handleFlip} aria-label="Flip camera" className="justify-self-end w-11 h-11 rounded-full bg-black/40 flex items-center justify-center text-white active:scale-90 transition-transform">
             <RefreshCw size={20} />
           </button>
         </div>
