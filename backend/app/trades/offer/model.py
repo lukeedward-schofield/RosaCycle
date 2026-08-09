@@ -7,8 +7,9 @@ class Offer(db.Model):
     __tablename__ = "offers"
     __table_args__ = (
         db.Index(
-            "ix_offers_one_pending_per_trade",
+            "ix_offers_one_pending_per_user_trade",
             "trade_id",
+            "offerer_id",
             unique=True,
             postgresql_where=db.text("status = 'PENDING'"),
             sqlite_where=db.text("status = 'PENDING'"),

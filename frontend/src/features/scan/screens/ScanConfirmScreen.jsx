@@ -5,6 +5,7 @@ import PrimaryButton from '@/shared/components/common/PrimaryButton';
 import AIDetectedForm from '@/features/scan/components/AIDetectedForm';
 import { createTrade, sendOffer, assessTradePhoto } from '@/shared/services/api';
 import { getPendingCapture, clearPendingCapture } from '@/shared/lib/pendingCapture';
+import GpsLocationAutofill from '@/shared/components/location/GpsLocationAutofill';
 
 
 
@@ -32,6 +33,8 @@ export default function ScanConfirmScreen() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
   const [imageRejected, setImageRejected] = useState(false);
+  const [locating, setLocating] = useState(context === 'posting');
+  const [locationError, setLocationError] = useState(false);
 
   const imageFile = getPendingCapture();
 
@@ -82,7 +85,6 @@ export default function ScanConfirmScreen() {
             setImageRejected(false);
 
             const detectedValues = {
-                ...BLANK_VALUES,
                 itemName: assessment.itemName,
                 category: assessment.category,
                 material: assessment.material,
@@ -93,7 +95,12 @@ export default function ScanConfirmScreen() {
 
             console.log('VALUES TO FORM:', detectedValues);
 
-            setValues(detectedValues);
+            // Preserve an already-resolved GPS location instead of replacing
+            // the whole form with a fresh blank location when AI finishes.
+            setValues((currentValues) => ({
+                ...currentValues,
+                ...detectedValues,
+            }));
 
         } catch (err) {
 
@@ -118,6 +125,30 @@ export default function ScanConfirmScreen() {
     };
 
   }, [imageFile]);
+
+  const handleGpsLocation = ({ latitude, longitude, locationText, reverseGeocoded }) => {
+    const coordinateFallback = `${latitude.toFixed(6)}, ${longitude.toFixed(6)}`;
+
+    setValues((currentValues) => {
+      const currentLocation = currentValues.currentLocation?.trim() || '';
+      const shouldAutofill =
+        !currentLocation ||
+        (reverseGeocoded && currentLocation === coordinateFallback);
+
+      return {
+        ...currentValues,
+        currentLocation: shouldAutofill ? locationText : currentValues.currentLocation,
+      };
+    });
+    setLocating(false);
+    setLocationError(false);
+  };
+
+  const handleGpsError = (gpsError) => {
+    console.error('GPS ERROR:', gpsError);
+    setLocating(false);
+    setLocationError(true);
+  };
 
   const canSubmit =
     !imageRejected && (context === 'posting'
@@ -185,6 +216,11 @@ export default function ScanConfirmScreen() {
 
   return (
     <div className="pb-10">
+      <GpsLocationAutofill
+        enabled={context === 'posting'}
+        onLocation={handleGpsLocation}
+        onError={handleGpsError}
+      />
       <Header onBack={() => navigate(-1)} title="Edit Details" />
 
       <div className="aspect-[4/3] bg-gray-200 flex items-center justify-center text-gray-400 text-sm overflow-hidden">
@@ -231,6 +267,16 @@ export default function ScanConfirmScreen() {
                               values={values}
                               onChange={setValues}
                           />
+
+                          {context === 'posting' && locating && (
+                              <p className="text-xs text-gray-400">📍 Getting your current location...</p>
+                          )}
+                          {context === 'posting' && !locating && !locationError && values.currentLocation?.trim() && (
+                              <p className="text-xs text-green-600">📍 Current location auto-filled from GPS</p>
+                          )}
+                          {context === 'posting' && locationError && (
+                              <p className="text-xs text-amber-600">📍 Couldn't get GPS — please enter your current location manually.</p>
+                          )}
 
                           {error && (
                               <p className="text-sm text-red-500">

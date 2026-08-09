@@ -1,7 +1,19 @@
+from datetime import timedelta
+
 from app.shared.utils.file_storage import build_media_url
 
 
+AUTO_COMPLETE_AFTER = timedelta(days=3)
+
+
 def serialize_trade(trade):
+    accepted_offer = trade.accepted_offer
+    auto_complete_at = (
+        trade.completion_requested_at + AUTO_COMPLETE_AFTER
+        if trade.completion_requested_at is not None
+        else None
+    )
+
     return {
         "id": trade.id,
         "name": trade.item_name,
@@ -21,7 +33,18 @@ def serialize_trade(trade):
         "description": trade.description,
         "status": trade.status.value,
         "hasOffers": trade.has_offers,
-        "offerAccepted": trade.offer_accepted,
+        "offerAccepted": accepted_offer is not None,
+        "acceptedOffererId": accepted_offer.offerer_id if accepted_offer is not None else None,
+        "acceptedOffererName": accepted_offer.offerer.first_name if accepted_offer is not None else None,
+        "completion": {
+            "requestedAt": (
+                trade.completion_requested_at.isoformat()
+                if trade.completion_requested_at is not None
+                else None
+            ),
+            "autoCompleteAt": auto_complete_at.isoformat() if auto_complete_at is not None else None,
+            "completedAt": trade.completed_at.isoformat() if trade.completed_at is not None else None,
+        },
         "conversationId": (
             trade.conversation.id
             if trade.conversation is not None

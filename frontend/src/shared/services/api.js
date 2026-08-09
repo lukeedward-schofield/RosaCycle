@@ -138,6 +138,14 @@ export async function deleteTrade(id) {
   });
 }
 
+export async function requestTradeCompletion(id) {
+  return apiFetch(`/trades/${id}/completion/request`, { method: 'POST' });
+}
+
+export async function confirmTradeCompletion(id) {
+  return apiFetch(`/trades/${id}/completion/confirm`, { method: 'POST' });
+}
+
 export async function assessTradePhoto(imageFile) {
     const form = buildFormData({}, imageFile);
     form.append("image", imageFile)

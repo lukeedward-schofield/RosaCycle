@@ -6,7 +6,14 @@ import MaterialTag from '@/shared/components/common/MaterialTag';
 import StatusPill from '@/shared/components/common/StatusPill';
 import PrimaryButton from '@/shared/components/common/PrimaryButton';
 import EcoImpactBox from '@/features/trades/components/trade/EcoImpactBox';
-import { deleteOffer, fetchTradeById, fetchMyOffers } from '@/shared/services/api';
+import TradeCompletionCard from '@/features/trades/components/trade/TradeCompletionCard';
+import { useAuth } from '@/features/auth/AuthContext';
+import {
+  confirmTradeCompletion,
+  deleteOffer,
+  fetchTradeById,
+  fetchMyOffers,
+} from '@/shared/services/api';
 
 /**
  * Read-only record of an offer you already sent — reached from Offer History.
@@ -16,11 +23,14 @@ import { deleteOffer, fetchTradeById, fetchMyOffers } from '@/shared/services/ap
 export default function ViewOfferScreen() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [trade, setTrade] = useState(null);
   const [offer, setOffer] = useState(null);
   const [loading, setLoading] = useState(true);
   const [deleting, setDeleting] = useState(false);
   const [error, setError] = useState('');
+  const [completionBusy, setCompletionBusy] = useState(false);
+  const [completionError, setCompletionError] = useState('');
 
   useEffect(() => {
     Promise.all([fetchTradeById(id).catch(() => null), fetchMyOffers()])
@@ -72,6 +82,23 @@ export default function ViewOfferScreen() {
     }
   };
 
+  const handleConfirmCompletion = async () => {
+    if (completionBusy || !trade) return;
+    const confirmed = window.confirm('Confirm that this trade has been completed?');
+    if (!confirmed) return;
+
+    setCompletionBusy(true);
+    setCompletionError('');
+    try {
+      const updated = await confirmTradeCompletion(trade.id);
+      setTrade(updated);
+    } catch (err) {
+      setCompletionError(err.message || 'Could not confirm this trade.');
+    } finally {
+      setCompletionBusy(false);
+    }
+  };
+
   return (
     <div className="pb-10">
       <Header onBack={() => navigate(-1)} title="Your Offer" />
@@ -113,6 +140,16 @@ export default function ViewOfferScreen() {
           <span className="text-sm text-gray-400">Status</span>
           <StatusPill status={offer.status} />
         </div>
+
+        {accepted && trade && (
+          <TradeCompletionCard
+            trade={trade}
+            currentUserId={user?.id}
+            busy={completionBusy}
+            error={completionError}
+            onConfirm={handleConfirmCompletion}
+          />
+        )}
 
         {error && <p className="text-center text-sm text-red-500">{error}</p>}
 

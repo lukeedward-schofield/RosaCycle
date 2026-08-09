@@ -8,6 +8,7 @@ import {
   assessResourceSpotPhoto,
 } from '@/shared/services/api';
 import { getPendingCapture, clearPendingCapture } from '@/shared/lib/pendingCapture';
+import GpsLocationAutofill from '@/shared/components/location/GpsLocationAutofill';
 
 const inputClass =
   'w-full bg-gray-100 rounded-xl px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-brand-500';
@@ -77,34 +78,32 @@ export default function ResourceSpotConfirmScreen() {
   scan();
 }, [imageFile]);
 
-  useEffect(() => {
-    if (!navigator.geolocation) {
-      console.error("Geolocation is not supported.");
-      setLocating(false);
-      setLocationError(true);
-      return;
-    }
+  const handleGpsLocation = ({
+    latitude: nextLatitude,
+    longitude: nextLongitude,
+    locationText: nextLocationText,
+    reverseGeocoded,
+  }) => {
+    const coordinateFallback = `${nextLatitude.toFixed(6)}, ${nextLongitude.toFixed(6)}`;
 
-  navigator.geolocation.getCurrentPosition(
-    (position) => {
-      // Remove For Debugging: console.log("GPS SUCCESS:", position.coords);
+    setLatitude(nextLatitude);
+    setLongitude(nextLongitude);
+    setLocationText((currentLocationText) => {
+      const currentLocation = currentLocationText.trim();
+      if (!currentLocation || (reverseGeocoded && currentLocation === coordinateFallback)) {
+        return nextLocationText;
+      }
+      return currentLocationText;
+    });
+    setLocating(false);
+    setLocationError(false);
+  };
 
-      setLatitude(position.coords.latitude);
-      setLongitude(position.coords.longitude);
-      setLocating(false);
-    },
-    (error) => {
-      console.error("GPS ERROR:", error);
-      setLocating(false);
-      setLocationError(true);
-    },
-    {
-      enableHighAccuracy: true,
-      timeout: 10000,
-      maximumAge: 0,
-    }
-  );
-}, []);
+  const handleGpsError = (gpsError) => {
+    console.error('GPS ERROR:', gpsError);
+    setLocating(false);
+    setLocationError(true);
+  };
 
   const canSubmit = !imageRejected && name.trim().length > 0 && material && locationText.trim().length > 0;
 
@@ -147,6 +146,7 @@ export default function ResourceSpotConfirmScreen() {
 
   return (
     <div className="pb-10">
+      <GpsLocationAutofill onLocation={handleGpsLocation} onError={handleGpsError} />
       <Header onBack={() => navigate(-1)} title="Report Spot" />
 
       <div className="aspect-[4/3] bg-gray-200 flex items-center justify-center text-gray-400 text-sm overflow-hidden">

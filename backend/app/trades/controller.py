@@ -2,14 +2,17 @@ from flask import g, request
 
 from app.trades.schema import serialize_trade
 from app.trades.service import (
+    confirm_trade_completion as confirm_trade_completion_service,
     create_trade as create_trade_service,
+    delete_trade as delete_trade_service,
     get_trade as get_trade_service,
     list_browse,
     list_mine,
+    request_trade_completion as request_trade_completion_service,
     update_trade as update_trade_service,
-    delete_trade as delete_trade_service
 )
 from app.trades.ai_service import assess_trade_photo
+
 
 def assess_trade():
     image = request.files.get("image")
@@ -62,8 +65,9 @@ def update_trade(trade_id):
     )
     return serialize_trade(trade), 200
 
+
 def delete_trade(trade_id):
-    trade = delete_trade_service(
+    delete_trade_service(
         trade_id,
         g.current_user.id,
     )
@@ -72,3 +76,13 @@ def delete_trade(trade_id):
         "success": True,
         "message": "Trade deleted successfully.",
     }, 200
+
+
+def request_trade_completion(trade_id):
+    trade = request_trade_completion_service(trade_id, g.current_user.id)
+    return serialize_trade(trade), 200
+
+
+def confirm_trade_completion(trade_id):
+    trade = confirm_trade_completion_service(trade_id, g.current_user.id)
+    return serialize_trade(trade), 200
