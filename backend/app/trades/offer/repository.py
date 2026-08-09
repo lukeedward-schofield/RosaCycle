@@ -20,6 +20,31 @@ def get_accepted_offer(trade_id):
     return Offer.query.filter_by(trade_id=trade_id, status=OfferStatus.ACCEPTED).first()
 
 
+
+
+def get_pending_offer_for_user(trade_id, offerer_id):
+    from app.shared.models.enums import OfferStatus
+
+    return Offer.query.filter_by(
+        trade_id=trade_id,
+        offerer_id=offerer_id,
+        status=OfferStatus.PENDING,
+    ).first()
+
+
+def list_other_pending_for_trade(trade_id, exclude_offer_id):
+    from app.shared.models.enums import OfferStatus
+
+    return (
+        Offer.query
+        .filter(
+            Offer.trade_id == trade_id,
+            Offer.id != exclude_offer_id,
+            Offer.status == OfferStatus.PENDING,
+        )
+        .all()
+    )
+
 def list_sent(offerer_id):
     return Offer.query.filter_by(offerer_id=offerer_id).order_by(Offer.created_at.desc()).all()
 
@@ -60,4 +85,4 @@ def save(*_objects):
         db.session.commit()
     except IntegrityError:
         db.session.rollback()
-        raise ConflictError("This trade already has an active offer.")
+        raise ConflictError("You already have a pending offer for this trade.")

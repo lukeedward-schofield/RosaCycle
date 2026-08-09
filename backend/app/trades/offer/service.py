@@ -4,7 +4,9 @@ from app.trades.offer.repository import (
     add_offer,
     delete_offer as repo_delete_offer,
     get_offer_by_id,
+    get_pending_offer_for_user,
     list_by_trade as repo_list_by_trade,
+    list_other_pending_for_trade,
     list_received as repo_list_received,
     list_sent as repo_list_sent,
     save,
@@ -31,6 +33,9 @@ def send_offer(trade_id, offerer_id, *, fields, image_file):
     
     if trade.status != TradeStatus.OPEN:
         raise ConflictError("This trade is no longer accepting offers.")
+
+    if get_pending_offer_for_user(trade.id, offerer_id) is not None:
+        raise ConflictError("You already have a pending offer for this trade.")
 
     is_free_trade = (
         trade.trading_for_type == TradingForType.NOTHING
@@ -66,9 +71,10 @@ def send_offer(trade_id, offerer_id, *, fields, image_file):
         if image_file is not None:
             offer.image_path = save_image(image_file, "offers")
 
+    # A pending offer must not reserve the trade. Keeping the trade OPEN lets
+    # other users submit competing offers until the owner accepts one.
     add_offer(offer)
-    trade.status = TradeStatus.RESERVED
-    save(offer, trade)
+    save(offer)
 
     notify(
         recipient_id=trade.owner_id,
@@ -95,16 +101,29 @@ def _get_offer_for_decision(offer_id, caller_id):
 def accept_offer(offer_id, caller_id):
     offer = _get_offer_for_decision(offer_id, caller_id)
 
+    if offer.trade.status != TradeStatus.OPEN:
+        raise ConflictError("This trade already has an accepted offer.")
+
+    now = utcnow()
     offer.status = OfferStatus.ACCEPTED
-    offer.decided_at = utcnow()
-    offer.trade.status = TradeStatus.COMPLETED
+    offer.decided_at = now
+    offer.trade.status = TradeStatus.RESERVED
+    offer.trade.completion_requested_at = None
+    offer.trade.completed_at = None
+
+    # Once the owner chooses one offer, all competing pending offers are closed
+    # so there can never be multiple accepted parties for the same trade.
+    other_pending_offers = list_other_pending_for_trade(offer.trade_id, offer.id)
+    for other_offer in other_pending_offers:
+        other_offer.status = OfferStatus.DECLINED
+        other_offer.decided_at = now
 
     create_conversation_if_needed(
         offer.trade,
         offer,
     )
 
-    save(offer, offer.trade)
+    save(offer, offer.trade, *other_pending_offers)
 
     notify(
         recipient_id=offer.offerer_id,
@@ -115,6 +134,16 @@ def accept_offer(offer_id, caller_id):
         offer_id=offer.id,
     )
 
+    for other_offer in other_pending_offers:
+        notify(
+            recipient_id=other_offer.offerer_id,
+            type=NotificationType.OFFER_DECLINED,
+            title="Offer declined",
+            body=f'Another offer on "{offer.trade.item_name}" was accepted by the owner.',
+            trade_id=other_offer.trade_id,
+            offer_id=other_offer.id,
+        )
+
     return offer
 
 
@@ -122,8 +151,7 @@ def decline_offer(offer_id, caller_id):
     offer = _get_offer_for_decision(offer_id, caller_id)
     offer.status = OfferStatus.DECLINED
     offer.decided_at = utcnow()
-    offer.trade.status = TradeStatus.OPEN
-    save(offer, offer.trade)
+    save(offer)
 
     notify(
         recipient_id=offer.offerer_id,
@@ -144,10 +172,6 @@ def delete_offer(offer_id, caller_id):
         raise ForbiddenError("Only the offerer can delete this offer.")
     if offer.status != OfferStatus.PENDING:
         raise ConflictError("Only pending offers can be deleted.")
-
-    trade = offer.trade
-    if trade.status == TradeStatus.RESERVED:
-        trade.status = TradeStatus.OPEN
 
     repo_delete_offer(offer)
 

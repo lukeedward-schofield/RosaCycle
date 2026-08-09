@@ -3,6 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { ChevronRight, Star } from 'lucide-react';
 import Header from '@/shared/components/layout/Header';
 import MessageThread from '@/features/trades/components/trade/MessageThread';
+import TradeCompletionCard from '@/features/trades/components/trade/TradeCompletionCard';
 import { useAuth } from '@/features/auth/AuthContext';
 import {
   fetchMessages,
@@ -10,6 +11,8 @@ import {
   fetchTradeById,
   fetchUserRatings,
   sendMessage,
+  requestTradeCompletion,
+  confirmTradeCompletion,
 } from '@/shared/services/api';
 
 export default function MessageThreadScreen() {
@@ -22,6 +25,8 @@ export default function MessageThreadScreen() {
   const [partner, setPartner] = useState(null);
   const [myRating, setMyRating] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [completionBusy, setCompletionBusy] = useState(false);
+  const [completionError, setCompletionError] = useState('');
 
   const loadMessages = async (conversationId) => {
     const backendMessages = await fetchMessages(conversationId);
@@ -43,6 +48,43 @@ export default function MessageThreadScreen() {
       await loadMessages(trade.conversationId);
     } catch (err) {
       console.error(err);
+    }
+  };
+
+  const handleRequestCompletion = async () => {
+    if (completionBusy || !trade) return;
+    const confirmed = window.confirm(
+      'Mark this trade as done? The other trader will have 3 days to confirm it.'
+    );
+    if (!confirmed) return;
+
+    setCompletionBusy(true);
+    setCompletionError('');
+    try {
+      const updated = await requestTradeCompletion(trade.id);
+      setTrade(updated);
+    } catch (err) {
+      setCompletionError(err.message || 'Could not mark this trade as done.');
+    } finally {
+      setCompletionBusy(false);
+    }
+  };
+
+  const handleConfirmCompletion = async () => {
+    if (completionBusy || !trade) return;
+    const confirmed = window.confirm('Confirm that this trade has been completed?');
+    if (!confirmed) return;
+
+    setCompletionBusy(true);
+    setCompletionError('');
+    try {
+      const updated = await confirmTradeCompletion(trade.id);
+      setTrade(updated);
+      setMyRating(null);
+    } catch (err) {
+      setCompletionError(err.message || 'Could not confirm this trade.');
+    } finally {
+      setCompletionBusy(false);
     }
   };
 
@@ -155,6 +197,19 @@ export default function MessageThreadScreen() {
         title={partner?.name || trade?.posterName || 'Conversation'}
         showBell={false}
       />
+
+      {trade.offerAccepted && (
+        <div className="px-4 pt-3 bg-white">
+          <TradeCompletionCard
+            trade={trade}
+            currentUserId={user?.id}
+            busy={completionBusy}
+            error={completionError}
+            onRequest={handleRequestCompletion}
+            onConfirm={handleConfirmCompletion}
+          />
+        </div>
+      )}
 
       {trade.status === 'completed' && (
         <div className="px-4 py-3 border-b border-gray-100 bg-white">

@@ -1,6 +1,9 @@
+from datetime import timedelta
+
 from app.shared.models.enums import NotificationType, TradeStatus, TradingForType
 from app.trades.model import Trade
 from app.trades.repository import (
+    complete_due_trade_requests,
     create_trade as create_trade_row,
     get_active_trade_by_id,
     get_trade_by_id,
@@ -8,13 +11,28 @@ from app.trades.repository import (
     list_mine as repo_list_mine,
     save_trade,
 )
+from app.trades.offer.repository import get_accepted_offer
 
 from app.shared.notification.service import notify
 
-from app.shared.utils.errors import ForbiddenError, NotFoundError, ValidationError
+from app.shared.utils.errors import ConflictError, ForbiddenError, NotFoundError, ValidationError
 from app.shared.utils.file_storage import save_image
+from app.shared.utils.mixins import utcnow
 
 VALID_TRADING_FOR_TYPES = {t.value for t in TradingForType}
+COMPLETION_CONFIRMATION_WINDOW = timedelta(days=3)
+
+
+def _refresh_due_completions():
+    """Lazily finalize overdue completion requests on normal API activity.
+
+    RosaCycle currently has no background worker. Persisting the request timestamp
+    and applying overdue completions whenever trade data is read gives users the
+    expected three-day behavior without adding an unrelated scheduler service.
+    """
+    now = utcnow()
+    cutoff = now - COMPLETION_CONFIRMATION_WINDOW
+    complete_due_trade_requests(cutoff, now)
 
 
 def create_trade(owner_id, *, fields, image_file):
@@ -48,6 +66,7 @@ def create_trade(owner_id, *, fields, image_file):
 
 
 def get_trade(trade_id):
+    _refresh_due_completions()
     trade = get_active_trade_by_id(trade_id)
     if trade is None:
         raise NotFoundError("Trade not found.")
@@ -83,6 +102,7 @@ def update_trade(trade_id, owner_id, *, fields, image_file):
 
     return save_trade(trade)
 
+
 def delete_trade(trade_id, owner_id):
     trade = get_trade(trade_id)
 
@@ -110,10 +130,54 @@ def delete_trade(trade_id, owner_id):
     return trade
 
 
+def request_trade_completion(trade_id, owner_id):
+    _refresh_due_completions()
+    trade = get_trade_by_id(trade_id)
+    if trade is None or trade.status == TradeStatus.DELETED:
+        raise NotFoundError("Trade not found.")
+    if trade.owner_id != owner_id:
+        raise ForbiddenError("Only the trade owner can mark this trade as done.")
+    if trade.status == TradeStatus.COMPLETED:
+        raise ConflictError("This trade is already completed.")
+
+    accepted_offer = get_accepted_offer(trade.id)
+    if accepted_offer is None:
+        raise ConflictError("An offer must be accepted before the trade can be completed.")
+    if trade.status != TradeStatus.RESERVED:
+        raise ConflictError("This trade is not ready for completion.")
+    if trade.completion_requested_at is not None:
+        return trade
+
+    trade.completion_requested_at = utcnow()
+    return save_trade(trade)
+
+
+def confirm_trade_completion(trade_id, caller_id):
+    _refresh_due_completions()
+    trade = get_trade_by_id(trade_id)
+    if trade is None or trade.status == TradeStatus.DELETED:
+        raise NotFoundError("Trade not found.")
+    if trade.status == TradeStatus.COMPLETED:
+        return trade
+
+    accepted_offer = get_accepted_offer(trade.id)
+    if accepted_offer is None:
+        raise ConflictError("This trade has no accepted offer.")
+    if accepted_offer.offerer_id != caller_id:
+        raise ForbiddenError("Only the accepted offerer can confirm this trade as complete.")
+    if trade.completion_requested_at is None:
+        raise ConflictError("The trade owner has not marked this trade as done yet.")
+
+    trade.status = TradeStatus.COMPLETED
+    trade.completed_at = utcnow()
+    return save_trade(trade)
+
+
 def list_browse(current_user_id, *, category=None, location=None):
+    _refresh_due_completions()
     return repo_list_browse(exclude_owner_id=current_user_id, category=category, location=location).all()
 
 
 def list_mine(owner_id):
+    _refresh_due_completions()
     return repo_list_mine(owner_id).all()
-

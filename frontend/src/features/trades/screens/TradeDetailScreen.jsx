@@ -6,12 +6,25 @@ import MaterialTag from '@/shared/components/common/MaterialTag';
 import StatusPill from '@/shared/components/common/StatusPill';
 import PrimaryButton from '@/shared/components/common/PrimaryButton';
 import EcoImpactBox from '@/features/trades/components/trade/EcoImpactBox';
+import TradeCompletionCard from '@/features/trades/components/trade/TradeCompletionCard';
+import { useAuth } from '@/features/auth/AuthContext';
 import { formatTradingFor, getTradeStatus } from '@/shared/utils/tradeFormat';
-import { fetchTradeById, fetchOffersForTrade, acceptOffer, declineOffer, sendOffer, fetchUserRatings, deleteTrade } from '@/shared/services/api';
+import {
+  fetchTradeById,
+  fetchOffersForTrade,
+  acceptOffer,
+  declineOffer,
+  sendOffer,
+  fetchUserRatings,
+  deleteTrade,
+  requestTradeCompletion,
+  confirmTradeCompletion,
+} from '@/shared/services/api';
 
 export default function TradeDetailScreen() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [searchParams] = useSearchParams();
   // TradesScreen links to My Trades items with ?owner=1 — derive isOwner from
   // that instead of a prop, since no route ever actually passed one in.
@@ -26,6 +39,12 @@ export default function TradeDetailScreen() {
   const [posterRating, setPosterRating] = useState(null);
   const [claiming, setClaiming] = useState(false);
   const [showActions, setShowActions] = useState(false);
+  const [completionBusy, setCompletionBusy] = useState(false);
+  const [completionError, setCompletionError] = useState('');
+
+  const handleBack = () => {
+    navigate(isOwner ? '/trades?tab=mine' : '/trades');
+  };
 
   const loadTrade = () => {
     setLoading(true);
@@ -139,10 +158,48 @@ export default function TradeDetailScreen() {
     }
   };
 
+  const handleRequestCompletion = async () => {
+    if (completionBusy) return;
+    const confirmed = window.confirm(
+      'Mark this trade as done? The other trader will have 3 days to confirm it.'
+    );
+    if (!confirmed) return;
+
+    setCompletionBusy(true);
+    setCompletionError('');
+    try {
+      const updated = await requestTradeCompletion(trade.id);
+      setTrade(updated);
+    } catch (err) {
+      setCompletionError(err.message || 'Could not mark this trade as done.');
+    } finally {
+      setCompletionBusy(false);
+    }
+  };
+
+  const handleConfirmCompletion = async () => {
+    if (completionBusy) return;
+    const confirmed = window.confirm(
+      'Confirm that this trade has been completed?'
+    );
+    if (!confirmed) return;
+
+    setCompletionBusy(true);
+    setCompletionError('');
+    try {
+      const updated = await confirmTradeCompletion(trade.id);
+      setTrade(updated);
+    } catch (err) {
+      setCompletionError(err.message || 'Could not confirm this trade.');
+    } finally {
+      setCompletionBusy(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="pb-10">
-        <Header onBack={() => navigate(-1)} title="Items" />
+        <Header onBack={handleBack} title="Items" />
         <p className="text-center text-sm text-gray-400 py-16">Loading...</p>
       </div>
     );
@@ -151,7 +208,7 @@ export default function TradeDetailScreen() {
   if (notFound || !trade) {
     return (
       <div className="pb-10">
-        <Header onBack={() => navigate(-1)} title="Items" />
+        <Header onBack={handleBack} title="Items" />
         <p className="text-center text-sm text-gray-400 py-16">This trade could not be found.</p>
       </div>
     );
@@ -238,6 +295,15 @@ export default function TradeDetailScreen() {
           <p className="font-semibold text-gray-900">{formatTradingFor(trade.tradingFor)}</p>
         </div>
 
+        <TradeCompletionCard
+          trade={trade}
+          currentUserId={user?.id}
+          busy={completionBusy}
+          error={completionError}
+          onRequest={handleRequestCompletion}
+          onConfirm={handleConfirmCompletion}
+        />
+
         {/* Per docs: "user accepts offer > a chat is started" — for the owner,
             each accepted offer below already has its own "Open Chat" button,
             so this generic shortcut is just for the non-owner side. */}
@@ -294,7 +360,7 @@ export default function TradeDetailScreen() {
   if (!isOwner) {
     return (
       <div className="pb-10">
-        <Header onBack={() => navigate(-1)} title="Items" />
+        <Header onBack={handleBack} title="Items" />
         <div className="relative">{itemInfo}</div>
       </div>
     );
@@ -303,7 +369,7 @@ export default function TradeDetailScreen() {
   // Owner: item info stays fixed in place; only Received Offers scrolls.
   return (
     <div className="h-screen flex flex-col overflow-hidden">
-      <Header onBack={() => navigate(-1)} title="Items" />
+      <Header onBack={handleBack} title="Items" />
       <div className="shrink-0 relative">{itemInfo}</div>
 
       <div className="flex-1 overflow-y-auto min-h-0 border-t border-gray-100 px-5 py-5">
