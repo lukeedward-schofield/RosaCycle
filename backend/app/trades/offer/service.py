@@ -1,4 +1,4 @@
-from app.shared.models.enums import NotificationType, OfferStatus, TradeStatus
+from app.shared.models.enums import NotificationType, OfferStatus, TradeStatus, TradingForType
 from app.trades.offer.model import Offer
 from app.trades.offer.repository import (
     add_offer,
@@ -20,30 +20,50 @@ REQUIRED_OFFER_FIELDS = ("itemName", "category", "material")
 
 
 def send_offer(trade_id, offerer_id, *, fields, image_file):
+
     trade = get_trade_by_id(trade_id)
     if trade is None:
         raise NotFoundError("Trade not found.")
+    
     if trade.owner_id == offerer_id:
         raise ForbiddenError("You cannot send an offer on your own trade.")
+    
     if trade.status != TradeStatus.OPEN:
         raise ConflictError("This trade is no longer accepting offers.")
 
-    missing = [f for f in REQUIRED_OFFER_FIELDS if not fields.get(f)]
-    if missing:
-        raise ValidationError(f"Missing required field(s): {', '.join(missing)}.")
-
-    offer = Offer(
-        trade_id=trade.id,
-        offerer_id=offerer_id,
-        item_name=fields["itemName"],
-        category=fields["category"],
-        material=fields["material"],
-        weight_kg=fields.get("weightKg"),
-        description=fields.get("description"),
-        status=OfferStatus.PENDING,
+    is_free_trade = (
+        trade.trading_for_type == TradingForType.NOTHING
     )
-    if image_file is not None:
-        offer.image_path = save_image(image_file, "offers")
+
+    if is_free_trade:
+        offer = Offer(
+            trade_id=trade.id,
+            offerer_id=offerer_id,
+            item_name=trade.item_name,
+            category=trade.category,
+            material=trade.material,
+            weight_kg=trade.weight_kg,
+            description=trade.description,
+            status=OfferStatus.PENDING,
+        )
+    else:
+
+        missing = [f for f in REQUIRED_OFFER_FIELDS if not fields.get(f)]
+        if missing:
+            raise ValidationError(f"Missing required field(s): {', '.join(missing)}.")
+
+        offer = Offer(
+            trade_id=trade.id,
+            offerer_id=offerer_id,
+            item_name=fields["itemName"],
+            category=fields["category"],
+            material=fields["material"],
+            weight_kg=fields.get("weightKg"),
+            description=fields.get("description"),
+            status=OfferStatus.PENDING,
+        )
+        if image_file is not None:
+            offer.image_path = save_image(image_file, "offers")
 
     add_offer(offer)
     trade.status = TradeStatus.RESERVED
