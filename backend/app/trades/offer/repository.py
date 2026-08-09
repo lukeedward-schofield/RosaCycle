@@ -38,6 +38,23 @@ def add_offer(offer):
     return offer
 
 
+def delete_offer(offer):
+    # Notifications keep the trade reference, but must release the offer FK
+    # before the offer row can be removed.
+    from app.shared.notification.model import Notification
+
+    Notification.query.filter_by(related_offer_id=offer.id).update(
+        {Notification.related_offer_id: None},
+        synchronize_session=False,
+    )
+    db.session.delete(offer)
+    try:
+        db.session.commit()
+    except IntegrityError:
+        db.session.rollback()
+        raise ConflictError("This offer could not be deleted.")
+
+
 def save(*_objects):
     try:
         db.session.commit()

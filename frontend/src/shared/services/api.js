@@ -171,6 +171,10 @@ export async function declineOffer(offerId) {
   return apiFetch(`/offers/${offerId}/decline`, { method: 'POST' });
 }
 
+export async function deleteOffer(offerId) {
+  return apiFetch(`/offers/${offerId}`, { method: 'DELETE' });
+}
+
 export async function fetchMyOffers() {
   return apiFetch('/offers/mine');
 }

@@ -30,6 +30,12 @@ def decline_offer(offer_id):
     return offer_controller.decline_offer(offer_id)
 
 
+@offer_bp.delete("/offers/<offer_id>")
+@require_auth
+def delete_offer(offer_id):
+    return offer_controller.delete_offer(offer_id)
+
+
 @offer_bp.get("/offers/mine")
 @require_auth
 def my_sent_offers():
