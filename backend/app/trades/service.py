@@ -2,6 +2,7 @@ from app.shared.models.enums import NotificationType, TradeStatus, TradingForTyp
 from app.trades.model import Trade
 from app.trades.repository import (
     create_trade as create_trade_row,
+    get_active_trade_by_id,
     get_trade_by_id,
     list_browse as repo_list_browse,
     list_mine as repo_list_mine,
@@ -47,7 +48,7 @@ def create_trade(owner_id, *, fields, image_file):
 
 
 def get_trade(trade_id):
-    trade = get_trade_by_id(trade_id)
+    trade = get_active_trade_by_id(trade_id)
     if trade is None:
         raise NotFoundError("Trade not found.")
     return trade
