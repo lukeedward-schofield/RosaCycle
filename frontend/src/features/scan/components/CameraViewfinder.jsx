@@ -183,7 +183,7 @@ export default function CameraViewfinder({ previewImage, boundingBox, onCapture,
           </div>
         </div>
       ) : (
-        <div className="absolute bottom-0 left-0 right-0 flex items-center justify-between px-8 py-6 bg-gradient-to-t from-black/60 to-transparent">
+         <div className="absolute bottom-20 left-0 right-0 flex items-center justify-between px-8 py-6 bg-gradient-to-t from-black/60 to-transparent">
           <button onClick={openGallery} aria-label="Upload from gallery" className="text-white active:scale-90 transition-transform">
             <Upload size={26} />
           </button>
