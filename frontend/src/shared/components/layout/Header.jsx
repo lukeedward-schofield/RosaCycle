@@ -1,6 +1,7 @@
 import { ArrowLeft, Bell } from 'lucide-react';
 import Logo from '@/shared/components/common/Logo';
 import UserMenu from '@/shared/components/layout/UserMenu';
+import { useNavigate } from 'react-router-dom';
 
 /**
  * Shared header used across all screens.
@@ -8,6 +9,8 @@ import UserMenu from '@/shared/components/layout/UserMenu';
  * - With `onBack`: shows a back arrow + optional title instead of the logo
  */
 export default function Header({ onBack, title, showBell = true }) {
+  const navigate = useNavigate();
+
   return (
     <header className="flex items-center justify-between px-4 py-3 bg-white border-b border-gray-100 sticky top-0 z-20">
       <div className="flex items-center gap-2">
@@ -25,8 +28,11 @@ export default function Header({ onBack, title, showBell = true }) {
 
       <div className="flex items-center gap-3">
         {showBell && (
-          <button aria-label="Notifications" className="p-1 text-gray-700 active:scale-95 transition-transform">
-            <Bell size={22} />
+          <button 
+            aria-label="Notifications" 
+            onClick={() => navigate("/notifications")}
+            className="p-1 text-gray-700 active:scale-95 transition-transform">
+              <Bell size={22} />
           </button>
         )}
         <UserMenu />
