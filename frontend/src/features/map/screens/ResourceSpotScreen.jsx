@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import Header from '@/shared/components/layout/Header';
 import BottomNav from '@/shared/components/layout/BottomNav';
 import CameraViewfinder from '@/features/scan/components/CameraViewfinder';
-import { setPendingCapture, clearPendingCapture } from '@/shared/lib/pendingCapture';
+import { setPendingCapture } from '@/shared/lib/pendingCapture';
 
 /**
  * Bottom-nav "Camera" tab. Captures a photo of a resource spot (a location
@@ -17,18 +17,11 @@ export default function ResourceSpotScreen() {
 
   const handleFileSelected = (file) => {
     setPendingCapture(file);
-    setPreviewUrl((currentUrl) => {
-      if (currentUrl) URL.revokeObjectURL(currentUrl);
-      return URL.createObjectURL(file);
-    });
+    setPreviewUrl(URL.createObjectURL(file));
   };
 
   const handleRetake = () => {
-    clearPendingCapture();
-    setPreviewUrl((currentUrl) => {
-      if (currentUrl) URL.revokeObjectURL(currentUrl);
-      return null;
-    });
+    setPreviewUrl(null);
   };
 
   const goToConfirm = () => {
@@ -36,15 +29,15 @@ export default function ResourceSpotScreen() {
   };
 
   return (
-    <div className="h-screen flex flex-col overflow-hidden">
+    <div className="h-[100dvh] flex flex-col overflow-hidden">
       <Header title="Resource Spot" showBell={false} />
-      <div className="flex-1 relative min-h-0 pb-16">
+      <div className="flex-1 relative min-h-0 overflow-hidden">
         <CameraViewfinder
           previewImage={previewUrl}
           onCapture={goToConfirm}
           onFileSelected={handleFileSelected}
-          onFlip={() => {}}
           onRetake={handleRetake}
+          onFlip={() => {}}
         />
       </div>
       <BottomNav />
